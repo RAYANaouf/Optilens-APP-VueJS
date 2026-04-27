@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
@@ -24,7 +24,7 @@ const routes = [
 ]
 
 let router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(import.meta.env.PROD ? '/frontend/' : '/'),
   routes,
 })
 

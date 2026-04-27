@@ -6,7 +6,7 @@ import { webserver_port } from '../../../sites/common_site_config.json'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/assets/optilens_app/frontend/',
+  base: process.env.NODE_ENV === 'production' ? '/assets/optilens_app/frontend/' : '/',
   plugins: [vue()],
   server: {
     port: 8080,
