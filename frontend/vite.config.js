@@ -18,9 +18,14 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: `../${path.basename(path.resolve('..'))}/public/frontend`,
+    outDir: '../../sites/assets/optilens_app/frontend',
     emptyOutDir: true,
     target: 'es2015',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
   },
   optimizeDeps: {
     include: ['frappe-ui > feather-icons', 'showdown', 'engine.io-client'],
