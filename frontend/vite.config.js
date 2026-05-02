@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../../sites/assets/optilens_app/frontend',
+    outDir: '../../../sites/optilens.jethings.com/public/assets/optilens_app/frontend',
     emptyOutDir: true,
     target: 'es2015',
     rollupOptions: {
