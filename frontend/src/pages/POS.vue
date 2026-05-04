@@ -19,8 +19,15 @@
               @input="onSearchInput"
               type="text"
               placeholder="Search items by name, code, or brand..."
-              class="w-full pl-11 pr-4 py-3.5 bg-white border-none rounded-2xl shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 focus:shadow-md outline-none text-sm transition-all placeholder:text-gray-400"
+              class="w-full pl-11 pr-10 py-3.5 bg-white border-none rounded-2xl shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 focus:shadow-md outline-none text-sm transition-all placeholder:text-gray-400"
             />
+            <button 
+              v-if="searchQuery" 
+              @click="searchQuery = ''; onSearchInput()"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FeatherIcon name="x" class="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -35,22 +42,41 @@
               v-for="item in displayedItems"
               :key="item.name"
               @click="selectItem(item)"
-              :class="[
-                'p-3 rounded-xl border text-left transition-all hover:shadow-md relative',
-                cart.find(i => i.name === item.name)
-                  ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
-                  : 'border-gray-200 bg-white hover:border-green-300'
-              ]"
+              class="group bg-white p-2.5 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 transition-all text-left flex flex-col aspect-square relative active:scale-[0.98]"
             >
-              <div v-if="cart.find(i => i.name === item.name)" class="absolute top-2 right-2 w-5 h-5 bg-green-500 text-white rounded-full text-xs flex items-center justify-center font-bold">
-                {{ cart.find(i => i.name === item.name).qty }}
+              <!-- Stock Badge (Top Layer) -->
+              <div 
+                :class="[
+                  'absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-[9px] font-bold shadow-sm z-10',
+                  (item.stock_qty || 0) > 0 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                ]"
+              >
+                {{ item.stock_qty || 0 }}
               </div>
-              <div class="w-full h-24 bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
-                <FeatherIcon name="package" class="w-8 h-8 text-gray-400" />
+
+              <!-- Content Wrapper -->
+              <div class="flex flex-col h-full overflow-hidden">
+                <!-- Item Image (Half Square) -->
+                <div class="h-1/2 w-full rounded-xl bg-gray-50 mb-2 overflow-hidden flex items-center justify-center border border-gray-50 group-hover:border-green-100 transition-colors shrink-0">
+                  <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
+                  <FeatherIcon v-else name="package" class="w-6 h-6 text-gray-200" />
+                </div>
+                
+                <!-- Item Info -->
+                <div class="flex-1 flex flex-col justify-between min-h-0">
+                  <div class="min-h-0">
+                    <p class="text-[9px] font-bold text-green-600 uppercase tracking-wider mb-0.5 truncate">{{ item.brand || 'No Brand' }}</p>
+                    <p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2 group-hover:text-green-600 transition-colors">{{ item.item_name || item.name }}</p>
+                  </div>
+                  
+                  <div class="flex items-center justify-between mt-auto pt-1.5 border-t border-gray-50">
+                    <p class="text-xs font-black text-gray-900">
+                      {{ formatCurrency(getPrice(item)).replace(' DA', '') }}
+                      <span class="text-[9px] font-normal text-gray-400">DA</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs font-medium text-gray-900 truncate">{{ item.item_name || item.name }}</p>
-              <p class="text-xs text-gray-500 truncate">{{ item.item_code }}</p>
-              <p class="text-sm font-bold text-green-600 mt-1">{{ formatCurrency(item.standard_rate) }}</p>
             </button>
           </div>
         </div>
@@ -63,7 +89,7 @@
           <button 
             v-for="order in orders"
             :key="order.id"
-            @click="activeOrderId = order.id"
+            @click="activeOrderId = order.id; focusedField = 'qty'"
             :class="[
               'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 shrink-0 border',
               (activeOrderId === order.id || (!activeOrderId && orders[0].id === order.id))
@@ -190,53 +216,159 @@
             <div
               v-for="(item, index) in cart"
               :key="item.name"
-              class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg group"
+              @click="activeOrder.selectedItemIndex = index"
+              :class="[
+                'flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg group cursor-pointer transition-colors',
+                selectedItemIndex === index ? 'bg-green-50 ring-1 ring-green-200 shadow-sm' : ''
+              ]"
             >
               <button
-                @click="removeFromCart(index)"
+                @click.stop="removeFromCart(index)"
                 class="shrink-0 p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <FeatherIcon name="trash-2" class="w-3 h-3" />
               </button>
               <p class="flex-1 text-xs font-semibold text-gray-900 truncate min-w-0">{{ item.item_name || item.name }}</p>
-              <input
-                :value="item.qty"
-                @input="e => updateQty(index, parseInt(e.target.value) || 1)"
-                type="number"
-                min="1"
-                class="selected-intem-style shrink-0 w-16 text-center text-xs text-gray-700 bg-transparent focus:outline-none"
-              />
-              <input
-                :value="item.standard_rate"
-                @input="e => updateRate(index, parseFloat(e.target.value) || 0)"
-                type="number"
-                step="0.01"
-                min="0"
-                class="selected-intem-style shrink-0 w-20 text-right text-xs text-green-600 font-bold bg-transparent focus:outline-none"
-              />
+              
+              <!-- Qty View -->
+              <button 
+                @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'qty'"
+                :class="[
+                  'shrink-0 w-16 text-center text-xs py-1 rounded transition-all',
+                  (selectedItemIndex === index && focusedField === 'qty') ? 'text-green-600 font-bold ring-1 ring-green-200 bg-green-50/50' : 'text-gray-700 hover:bg-gray-100'
+                ]"
+              >
+                {{ item.qty }}
+              </button>
+
+              <!-- Price View -->
+              <button 
+                @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'rate'"
+                :class="[
+                  'shrink-0 w-20 text-right text-xs py-1 rounded transition-all',
+                  (selectedItemIndex === index && focusedField === 'rate') ? 'text-green-600 font-bold ring-1 ring-green-200 bg-green-50/50' : 'text-green-600 font-bold hover:bg-gray-100'
+                ]"
+              >
+                {{ formatCurrency(item.standard_rate).replace(' DA', '') }}
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Checkout Section -->
-        <div class="border-t p-4 bg-gray-50 space-y-3">
-          <div class="flex items-center justify-between px-1">
-            <span class="text-sm text-gray-500 font-medium">Subtotal</span>
-            <span class="text-xl font-black text-gray-900">{{ formatCurrency(cartTotal) }}</span>
+        <!-- On-Screen Keyboard -->
+        <div class="bg-gray-100 p-2 border-t mt-auto">
+          <!-- Subtotal Row -->
+          <div class="flex items-center justify-between px-3 py-2 bg-white rounded-xl mb-2 border shadow-sm">
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Subtotal</span>
+            <span class="text-base font-black text-gray-900">{{ formatCurrency(cartTotal) }}</span>
           </div>
-          <button
-            @click="checkout"
-            :disabled="cart.length === 0"
-            :class="[
-              'w-full py-4 text-white rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-[0.98]',
-              cart.length === 0 
-                ? 'bg-gray-300 cursor-not-allowed shadow-none' 
-                : 'bg-green-600 hover:bg-green-700 shadow-green-200'
-            ]"
-          >
-            {{ selectedCustomer ? 'Complete Order' : 'Checkout as Guest' }}
-          </button>
+
+          <div class="grid grid-cols-4 gap-1.5">
+            <!-- Left 3 Columns: Numbers -->
+            <div class="col-span-3 grid grid-cols-3 gap-1.5">
+              <button 
+                v-for="n in [1,2,3,4,5,6,7,8,9]" 
+                :key="n" 
+                @click="handleKeyboardInput(n)" 
+                :disabled="selectedItemIndex === null"
+                :class="[
+                  'h-12 bg-white rounded-xl shadow-sm text-base font-bold transition-colors',
+                  selectedItemIndex === null ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-200'
+                ]"
+              >
+                {{ n }}
+              </button>
+              <button 
+                @click="handleKeyboardInput('.')" 
+                :disabled="selectedItemIndex === null"
+                :class="['h-12 bg-white rounded-xl shadow-sm text-base font-bold', selectedItemIndex === null ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-200']"
+              >.</button>
+              <button 
+                @click="handleKeyboardInput(0)" 
+                :disabled="selectedItemIndex === null"
+                :class="['h-12 bg-white rounded-xl shadow-sm text-base font-bold', selectedItemIndex === null ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-200']"
+              >0</button>
+              <button 
+                @click="handleKeyboardInput('backspace')" 
+                :disabled="selectedItemIndex === null"
+                :class="['h-12 bg-white rounded-xl shadow-sm flex items-center justify-center', selectedItemIndex === null ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-200']"
+              >
+                <FeatherIcon name="delete" class="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <!-- Right 1 Column: Controls -->
+            <div class="col-span-1 grid grid-rows-4 gap-1.5">
+              <button 
+                @click="focusedField = 'qty'" 
+                :disabled="selectedItemIndex === null"
+                :class="[
+                  'rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border',
+                  selectedItemIndex === null ? 'opacity-50 cursor-not-allowed bg-white text-gray-400' : 
+                  (focusedField === 'qty' ? 'bg-green-600 text-white border-green-700 shadow-inner' : 'bg-white text-gray-500 border-transparent hover:bg-gray-50')
+                ]"
+              >
+                Qty
+              </button>
+              <button 
+                @click="focusedField = 'rate'" 
+                :disabled="selectedItemIndex === null"
+                :class="[
+                  'rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border',
+                  selectedItemIndex === null ? 'opacity-50 cursor-not-allowed bg-white text-gray-400' :
+                  (focusedField === 'rate' ? 'bg-green-600 text-white border-green-700 shadow-inner' : 'bg-white text-gray-500 border-transparent hover:bg-gray-50')
+                ]"
+              >
+                Price
+              </button>
+              <button 
+                @click="toggleSign" 
+                :disabled="selectedItemIndex === null"
+                :class="[
+                  'rounded-xl border text-base font-black uppercase transition-colors',
+                  selectedItemIndex === null ? 'opacity-50 cursor-not-allowed bg-white text-gray-400' : 'bg-gray-50 text-gray-700 border-gray-200 active:bg-gray-100'
+                ]"
+              >
+                +/-
+              </button>
+              <button 
+                @click="removeFromCart(selectedItemIndex)" 
+                :disabled="selectedItemIndex === null"
+                :class="[
+                  'rounded-xl text-[10px] font-black uppercase transition-colors',
+                  selectedItemIndex === null ? 'opacity-50 cursor-not-allowed bg-white text-gray-400' : 'bg-red-50 text-red-600 border border-red-100 active:bg-red-100'
+                ]"
+              >
+                Remove
+              </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <button 
+              @click="checkout"
+              :disabled="!selectedCustomer"
+              :class="[
+                'col-span-2 h-14 mt-1 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98]',
+                !selectedCustomer ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'
+              ]"
+            >
+              Complete
+            </button>
+            <button 
+              @click="printReceipt"
+              :disabled="cart.length === 0"
+              :class="[
+                'col-span-2 h-14 mt-1 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-[0.98]',
+                cart.length === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'text-white hover:opacity-90'
+              ]"
+              :style="cart.length > 0 ? { backgroundColor: '#F7471C' } : {}"
+            >
+              Print
+            </button>
+          </div>
         </div>
+
+        <!-- Checkout Section Removed as requested -->
       </div>
     </div>
   </div>
@@ -265,6 +397,7 @@ export default {
           customerSearch: '',
           selectedPriceList: null,
           priceListSearch: 'Standard Selling',
+          selectedItemIndex: null,
         }
       ],
       activeOrderId: null,
@@ -272,6 +405,7 @@ export default {
       priceLists: [], // Global price lists
       showCustomerDropdown: false,
       showPriceListDropdown: false,
+      focusedField: 'qty', // 'qty' or 'rate'
     }
   },
   computed: {
@@ -287,6 +421,9 @@ export default {
     },
     selectedPriceList() {
       return this.activeOrder?.selectedPriceList || null
+    },
+    selectedItemIndex() {
+      return this.activeOrder?.selectedItemIndex ?? null
     },
     customerSearch: {
       get() { return this.activeOrder?.customerSearch || '' },
@@ -306,8 +443,11 @@ export default {
       )
     },
     displayedItems() {
-      // Cap at 50 to prevent browser freeze; search shows all matches
-      return this.filteredItems.slice(0, 50)
+      // Map items to include the rate based on the selected price list
+      return this.filteredItems.slice(0, 50).map(item => ({
+        ...item,
+        standard_rate: this.getPrice(item)
+      }))
     },
     filteredCustomers() {
       if (!this.customerSearch) return this.customers
@@ -337,11 +477,37 @@ export default {
     }
     // Close dropdowns when clicking outside
     document.addEventListener('click', this.handleClickOutside)
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', this.handleKeyDown)
   },
   beforeUnmount() {
     document.removeEventListener('click', this.handleClickOutside)
+    document.removeEventListener('keydown', this.handleKeyDown)
   },
   methods: {
+    handleKeyDown(e) {
+      // Ignore if user is typing in an input field
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+      const key = e.key.toLowerCase()
+      if (key === 'q') {
+        this.focusedField = 'qty'
+      } else if (key === 'p') {
+        this.focusedField = 'rate'
+      } else if (this.selectedItemIndex !== null) {
+        if (/^[0-9]$/.test(key)) {
+          this.handleKeyboardInput(parseInt(key))
+        } else if (key === '.') {
+          this.handleKeyboardInput('.')
+        } else if (key === 'backspace') {
+          this.handleKeyboardInput('backspace')
+        } else if (key === 'delete') {
+          this.removeFromCart(this.selectedItemIndex)
+        } else if (key === '-') {
+          this.toggleSign()
+        }
+      }
+    },
     handleClickOutside(e) {
       if (!e.target.closest('#customer-selection-container')) {
         this.showCustomerDropdown = false
@@ -359,6 +525,7 @@ export default {
         customerSearch: '',
         selectedPriceList: null,
         priceListSearch: 'Standard Selling',
+        selectedItemIndex: null,
       }
       this.orders.push(newOrder)
       this.activeOrderId = newOrder.id
@@ -378,6 +545,8 @@ export default {
         const data = await response.json()
         if (data.message) {
           this.priceLists = data.message
+          // Fetch items after price lists are available
+          this.fetchItems()
         }
       } catch (error) {
         console.error('Failed to fetch price lists:', error)
@@ -402,6 +571,55 @@ export default {
         this.activeOrder.priceListSearch = ''
         this.showPriceListDropdown = false
       }
+    },
+    getPrice(item) {
+      const priceList = this.selectedPriceList?.name || 'Standard Selling'
+      const priceObj = item.prices?.find(p => p.price_list === priceList)
+      return priceObj ? priceObj.price_list_rate : (item.standard_rate || 0)
+    },
+    handleKeyboardInput(val) {
+      if (this.selectedItemIndex === null) return
+      const item = this.cart[this.selectedItemIndex]
+      const field = this.focusedField === 'qty' ? 'qty' : 'standard_rate'
+      let currentVal = item[field].toString()
+
+      if (val === 'backspace') {
+        currentVal = currentVal.slice(0, -1)
+        if (currentVal === '' || currentVal === '-') currentVal = '0'
+      } else if (val === 'clear') {
+        currentVal = '0'
+      } else if (val === '.') {
+        if (!currentVal.includes('.')) {
+          currentVal += '.'
+        }
+      } else {
+        if (currentVal === '0') {
+          currentVal = val.toString()
+        } else if (currentVal === '-0') {
+          currentVal = '-' + val.toString()
+        } else {
+          currentVal += val.toString()
+        }
+      }
+
+      const numVal = parseFloat(currentVal)
+      if (!isNaN(numVal)) {
+        if (this.focusedField === 'qty') {
+          item.qty = numVal
+        } else {
+          item.standard_rate = numVal
+        }
+      }
+    },
+    toggleSign() {
+      if (this.selectedItemIndex === null) return
+      const item = this.cart[this.selectedItemIndex]
+      const field = this.focusedField === 'qty' ? 'qty' : 'standard_rate'
+      
+      // Don't allow negative price
+      if (field === 'standard_rate' && item[field] > 0) return
+      
+      item[field] = item[field] * -1
     },
     closeOrder(id) {
       const index = this.orders.findIndex(o => o.id === id)
@@ -439,11 +657,11 @@ export default {
         this.showCustomerDropdown = false
       }
     },
-    onCustomerInput() {
-      if (this.activeOrder) {
-        this.activeOrder.selectedCustomer = null
-        this.showCustomerDropdown = true
-      }
+    onSearchInput() {
+      clearTimeout(this.searchTimeout)
+      this.searchTimeout = setTimeout(() => {
+        // Local filtering via computed properties
+      }, 300)
     },
     clearCustomer() {
       if (this.activeOrder) {
@@ -452,80 +670,44 @@ export default {
         this.showCustomerDropdown = false
       }
     },
-    async fetchItems(search = '') {
+    async fetchItems() {
       try {
-        const filters = { disabled: 0, is_sales_item: 1 }
-        if (search) {
-          filters.item_name = ['like', '%' + search + '%']
-        }
-
-        const response = await fetch('/api/method/frappe.client.get_list', {
+        const response = await fetch('/api/method/optilens_app.api.pos.get_item', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            doctype: 'Item',
-            fields: ['name', 'item_name', 'item_code', 'brand', 'item_group', 'standard_rate', 'stock_uom'],
-            filters: filters,
-            limit_page_length: 0,
+            priceLists: JSON.stringify(this.priceLists),
+            warehouse: 'Stores - OA'
           }),
         })
         const data = await response.json()
         if (data.message) {
-          this.items = data.message.map(item => ({ ...item, stock: 0 }))
-          this.fetchStock()
+          this.items = data.message
         }
       } catch (error) {
         console.error('Failed to fetch items:', error)
       }
     },
-    onSearchInput() {
-      // Client-side filtering via computed property; no server call needed
-      clearTimeout(this.searchTimeout)
-    },
-    async fetchStock() {
-      // Fetch stock quantities for items
-      try {
-        const itemNames = this.items.map(i => i.name)
-        if (itemNames.length === 0) return
-
-        const response = await fetch('/api/method/frappe.client.get_list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            doctype: 'Bin',
-            fields: ['item_code', 'actual_qty'],
-            filters: { item_code: ['in', itemNames] },
-            limit_page_length: 500,
-          }),
-        })
-        const data = await response.json()
-        if (data.message) {
-          const stockMap = {}
-          data.message.forEach(bin => {
-            stockMap[bin.item_code] = (stockMap[bin.item_code] || 0) + (bin.actual_qty || 0)
-          })
-          this.items = this.items.map(item => ({
-            ...item,
-            stock: stockMap[item.name] || 0,
-          }))
-        }
-      } catch (error) {
-        console.error('Failed to fetch stock:', error)
-      }
-    },
     selectItem(item) {
       // Add item to cart directly on click (qty 1)
-      const existing = this.cart.find(i => i.name === item.name)
-      if (existing) {
-        existing.qty += 1
+      const existingIndex = this.cart.findIndex(i => i.name === item.name)
+      if (existingIndex !== -1) {
+        this.cart[existingIndex].qty += 1
+        this.activeOrder.selectedItemIndex = existingIndex
       } else {
+        // Use the rate from the displayed item (which already accounted for the price list)
         this.cart.push({ ...item, qty: 1 })
+        this.activeOrder.selectedItemIndex = this.cart.length - 1
       }
     },
     removeFromCart(index) {
       this.cart.splice(index, 1)
+      if (this.activeOrder.selectedItemIndex === index) {
+        this.activeOrder.selectedItemIndex = null
+      } else if (this.activeOrder.selectedItemIndex > index) {
+        this.activeOrder.selectedItemIndex--
+      }
     },
     updateQty(index, newQty) {
       if (newQty < 1) return
@@ -536,9 +718,21 @@ export default {
       this.cart[index].standard_rate = newRate
     },
     checkout() {
+      if (this.cart.length === 0) return
       console.log('Checkout:', this.cart)
       // TODO: Create POS Invoice via Frappe API
-      this.cart = []
+      if (this.activeOrder) {
+        this.activeOrder.cart = []
+        this.activeOrder.selectedCustomer = null
+        this.activeOrder.customerSearch = ''
+        this.activeOrder.selectedItemIndex = null
+      }
+    },
+    printReceipt() {
+      if (this.cart.length === 0) return
+      console.log('Printing receipt for:', this.cart)
+      // TODO: Implement actual printing logic
+      alert('Receipt sent to printer')
     },
     formatCurrency(value) {
       if (!value) return '0.00 DA'
