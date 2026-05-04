@@ -485,6 +485,11 @@ export default {
     document.removeEventListener('keydown', this.handleKeyDown)
   },
   methods: {
+    getCookie(name) {
+      const value = `; ${document.cookie}`
+      const parts = value.split(`; ${name}=`)
+      if (parts.length === 2) return parts.pop().split(';').shift()
+    },
     handleKeyDown(e) {
       // Ignore if user is typing in an input field
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
@@ -534,7 +539,10 @@ export default {
       try {
         const response = await fetch('/api/method/frappe.client.get_list', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Frappe-CSRF-Token': this.getCookie('sid') === 'Guest' ? '' : this.getCookie('frappe_csrf_token')
+          },
           credentials: 'include',
           body: JSON.stringify({
             doctype: 'Price List',
@@ -634,7 +642,10 @@ export default {
       try {
         const response = await fetch('/api/method/frappe.client.get_list', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Frappe-CSRF-Token': this.getCookie('sid') === 'Guest' ? '' : this.getCookie('frappe_csrf_token')
+          },
           credentials: 'include',
           body: JSON.stringify({
             doctype: 'Customer',
@@ -674,7 +685,10 @@ export default {
       try {
         const response = await fetch('/api/method/optilens_app.api.pos.get_item', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Frappe-CSRF-Token': this.getCookie('sid') === 'Guest' ? '' : this.getCookie('frappe_csrf_token')
+          },
           credentials: 'include',
           body: JSON.stringify({
             priceLists: JSON.stringify(this.priceLists),
