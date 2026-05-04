@@ -367,15 +367,13 @@
             </button>
           </div>
         </div>
-
-        <!-- Checkout Section Removed as requested -->
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { Badge, FeatherIcon } from 'frappe-ui'
+import { Badge, FeatherIcon, createResource } from 'frappe-ui'
 
 export default {
   name: 'POS',
@@ -386,8 +384,8 @@ export default {
   data() {
     return {
       searchQuery: '',
-      items: [],
       searchTimeout: null,
+      activeOrderId: null,
       orders: [
         {
           id: Date.now(),
@@ -400,12 +398,48 @@ export default {
           selectedItemIndex: null,
         }
       ],
-      activeOrderId: null,
       customers: [], // Global customers list
       priceLists: [], // Global price lists
+      items: [], // Global items list
       showCustomerDropdown: false,
       showPriceListDropdown: false,
       focusedField: 'qty', // 'qty' or 'rate'
+      
+      // Resources
+      customersResource: createResource({
+        url: 'frappe.client.get_list',
+        params: {
+          doctype: 'Customer',
+          fields: ['name', 'customer_name', 'mobile_no'],
+          limit_page_length: 100,
+        },
+        auto: true,
+        onSuccess: (data) => {
+          this.customers = data
+        }
+      }),
+      priceListsResource: createResource({
+        url: 'frappe.client.get_list',
+        params: {
+          doctype: 'Price List',
+          fields: ['name'],
+          filters: { enabled: 1, selling: 1 },
+        },
+        auto: true,
+        onSuccess: (data) => {
+          this.priceLists = data
+          this.itemsResource.fetch()
+        }
+      }),
+      itemsResource: createResource({
+        url: 'optilens_app.api.pos.get_item',
+        params: {
+          warehouse: 'Stores - OA'
+        },
+        onSuccess: (data) => {
+          this.items = data
+        }
+      })
     }
   },
   computed: {
@@ -469,9 +503,6 @@ export default {
     },
   },
   mounted() {
-    this.fetchItems()
-    this.fetchCustomers()
-    this.fetchPriceLists()
     if (this.orders.length > 0) {
       this.activeOrderId = this.orders[0].id
     }
@@ -534,31 +565,6 @@ export default {
       }
       this.orders.push(newOrder)
       this.activeOrderId = newOrder.id
-    },
-    async fetchPriceLists() {
-      try {
-        const response = await fetch('/api/method/frappe.client.get_list', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Frappe-CSRF-Token': this.getCookie('sid') === 'Guest' ? '' : this.getCookie('frappe_csrf_token')
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            doctype: 'Price List',
-            fields: ['name'],
-            filters: { enabled: 1, selling: 1 },
-          }),
-        })
-        const data = await response.json()
-        if (data.message) {
-          this.priceLists = data.message
-          // Fetch items after price lists are available
-          this.fetchItems()
-        }
-      } catch (error) {
-        console.error('Failed to fetch price lists:', error)
-      }
     },
     selectPriceList(pl) {
       if (this.activeOrder) {
@@ -638,29 +644,6 @@ export default {
         }
       }
     },
-    async fetchCustomers() {
-      try {
-        const response = await fetch('/api/method/frappe.client.get_list', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Frappe-CSRF-Token': this.getCookie('sid') === 'Guest' ? '' : this.getCookie('frappe_csrf_token')
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            doctype: 'Customer',
-            fields: ['name', 'customer_name', 'mobile_no'],
-            limit_page_length: 100,
-          }),
-        })
-        const data = await response.json()
-        if (data.message) {
-          this.customers = data.message
-        }
-      } catch (error) {
-        console.error('Failed to fetch customers:', error)
-      }
-    },
     selectCustomer(customer) {
       if (this.activeOrder) {
         this.activeOrder.selectedCustomer = customer
@@ -679,28 +662,6 @@ export default {
         this.activeOrder.selectedCustomer = null
         this.activeOrder.customerSearch = ''
         this.showCustomerDropdown = false
-      }
-    },
-    async fetchItems() {
-      try {
-        const response = await fetch('/api/method/optilens_app.api.pos.get_item', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Frappe-CSRF-Token': this.getCookie('sid') === 'Guest' ? '' : this.getCookie('frappe_csrf_token')
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            priceLists: JSON.stringify(this.priceLists),
-            warehouse: 'Stores - OA'
-          }),
-        })
-        const data = await response.json()
-        if (data.message) {
-          this.items = data.message
-        }
-      } catch (error) {
-        console.error('Failed to fetch items:', error)
       }
     },
     selectItem(item) {
