@@ -451,16 +451,14 @@
         <div class="grid grid-cols-2 gap-2 mt-2">
           <button 
             @click="checkout" 
-            :disabled="cart.length === 0"
-            class="flex items-center justify-center gap-2 py-3.5 bg-[#39ADA8] text-white rounded-2xl font-black text-sm shadow-lg shadow-[#39ADA8]/20 hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex items-center justify-center gap-2 py-3.5 bg-[#39ADA8] text-white rounded-2xl font-black text-sm shadow-lg shadow-[#39ADA8]/20 hover:opacity-90 transition-all active:scale-[0.98]"
           >
             <FeatherIcon name="check-circle" class="w-4 h-4" />
             Done
           </button>
           <button 
             @click="printReceipt" 
-            :disabled="cart.length === 0"
-            class="flex items-center justify-center gap-2 py-3.5 bg-[#F7471C] text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex items-center justify-center gap-2 py-3.5 bg-[#F7471C] text-white rounded-2xl font-black text-sm shadow-lg shadow-red-100 hover:opacity-90 transition-all active:scale-[0.98]"
           >
             <FeatherIcon name="printer" class="w-4 h-4" />
             Print
