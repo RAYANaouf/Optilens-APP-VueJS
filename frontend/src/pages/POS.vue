@@ -134,7 +134,7 @@
             <span class="w-7"></span><span class="flex-1">Name</span><span class="shrink-0 w-14 text-center">Qty</span><span class="shrink-0 w-20 text-right pr-2">Price</span>
           </div>
           <div class="flex-1 overflow-y-auto px-4 py-2 space-y-1">
-            <div v-for="(item, index) in cart" :key="index" @click="activeOrder.selectedItemIndex = index" :class="['h-12 px-2 rounded-xl cursor-pointer border flex items-center gap-2 shrink-0 transition-all duration-200', selectedItemIndex === index ? 'bg-green-50 border-green-400 shadow-md ring-2 ring-green-100' : 'bg-white border-transparent hover:bg-gray-50']">
+            <div v-for="(item, index) in cart" :key="index" @click="activeOrder.selectedItemIndex = index" :class="['h-12 px-2 rounded-xl cursor-pointer border flex items-center gap-2 shrink-0 transition-all duration-200', selectedItemIndex === index ? ' border-green-400 ' : 'bg-white border-transparent hover:bg-gray-50']">
               <button @click.stop="removeFromCart(index)" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:text-red-600 transition-colors"><FeatherIcon name="trash-2" class="w-3.5 h-3.5" /></button>
               <p class="flex-1 text-xs font-semibold text-gray-900 truncate">{{ item.item_name || item.name }}</p>
               <button @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'qty'" :class="['shrink-0 w-14 h-8 flex items-center justify-center text-xs rounded-lg transition-all', (selectedItemIndex === index && focusedField === 'qty') ? 'text-green-600 font-bold ring-1 ring-green-200 bg-green-50' : 'text-gray-700 hover:bg-gray-100']">{{ item.qty }}</button>
