@@ -12,7 +12,15 @@
             <FeatherIcon name="chevron-right" class="w-5 h-5 text-black group-hover:translate-x-0.5 transition-transform" stroke-width="3" />
           </button>
           <h1 class="text-5xl font-black text-black tracking-tight flex items-center gap-2">
-            <span>Optilens <span class="text-[#F7471C]">POS</span></span>
+            <template v-if="currentMode === 'pos'">
+              <span>Optilens <span class="text-[#F7471C]">POS</span></span>
+            </template>
+            <template v-else>
+              <button @click="currentMode = 'pos'" class="flex items-center gap-2 text-2xl hover:opacity-70 transition-opacity">
+                <FeatherIcon name="arrow-left" class="w-6 h-6" stroke-width="3" />
+                <span>Payment <span class="text-[#F7471C]">Processing</span></span>
+              </button>
+            </template>
             <div v-if="loginData.profile" class="flex items-center gap-1.5 ml-3 pl-4 border-l border-black/20">
               <FeatherIcon name="user" class="w-4 h-4 text-black" stroke-width="3" />
               <span class="text-xs font-black text-black tracking-tight uppercase">{{ loginData.profile }}</span>
@@ -61,111 +69,158 @@
         </div>
       </div>
 
-      <!-- Item Selector Content (Card Style) -->
+      <!-- Left Card (Changes on Payment) -->
       <div class="flex-1 flex flex-col px-6 pb-2 overflow-hidden border border-gray-200 m-4 rounded-2xl bg-white shadow-sm">
-        <!-- Search Bar -->
-        <div class="h-12 shrink-0 flex items-center my-2">
-          <div class="relative group w-full">
-            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <FeatherIcon name="search" class="w-4 h-4 text-gray-400 group-focus-within:text-[#39ADA8] transition-colors" />
-            </div>
-            <input v-model="searchQuery" @input="onSearchInput" type="text" placeholder="Search items..." class="w-full pl-11 pr-10 py-2 bg-gray-50/50 border-none rounded-2xl focus:ring-2 focus:ring-[#39ADA8] outline-none text-sm placeholder:text-gray-400 transition-all" />
-            <button v-if="searchQuery" @click="searchQuery = ''; onSearchInput()" class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 transition-colors"><FeatherIcon name="x" class="w-4 h-4" /></button>
-          </div>
-        </div>
-
-        <!-- Items Grid -->
-        <div class="flex-1 overflow-y-auto">
-          <div v-if="displayedItems.length === 0" class="text-center py-12 text-gray-500">
-            <FeatherIcon name="package" class="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No items found</p>
-          </div>
-          <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-4">
-            <button v-for="item in displayedItems" :key="item.name" @click="selectItem(item)" class="group bg-white p-2.5 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 transition-all text-left flex flex-col aspect-square relative active:scale-[0.98]">
-              <div :class="['absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-[9px] font-bold shadow-sm z-10', (item.stock_qty || 0) > 0 ? 'bg-[#39ADA8] text-white' : 'bg-red-500 text-white']">{{ item.stock_qty || 0 }}</div>
-              <div class="flex flex-col h-full overflow-hidden">
-                <div class="h-1/2 w-full rounded-xl bg-gray-50 mb-2 overflow-hidden flex items-center justify-center border border-gray-50 group-hover:border-[#39ADA8]/20 shrink-0">
-                  <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
-                  <FeatherIcon v-else name="package" class="w-6 h-6 text-gray-200" />
-                </div>
-                <div class="flex-1 flex flex-col justify-between min-h-0">
-                  <div class="min-h-0">
-                    <p class="text-[9px] font-bold text-[#39ADA8] uppercase mb-0.5 truncate tracking-wider">{{ item.brand || 'No Brand' }}</p>
-                    <p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2 group-hover:text-[#39ADA8] transition-colors">{{ item.item_name || item.name }}</p>
-                  </div>
-                  <div class="mt-auto pt-1.5 border-t border-gray-50">
-                    <p class="text-xs font-black text-gray-900">{{ formatCurrency(getPrice(item)).replace(' DA', '') }} <span class="text-[9px] font-normal text-gray-400">DA</span></p>
-                  </div>
-                </div>
+        <template v-if="currentMode === 'pos'">
+          <!-- Search Bar -->
+          <div class="h-12 shrink-0 flex items-center my-2">
+            <div class="relative group w-full">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <FeatherIcon name="search" class="w-4 h-4 text-gray-400 group-focus-within:text-[#39ADA8] transition-colors" />
               </div>
+              <input v-model="searchQuery" @input="onSearchInput" type="text" placeholder="Search items..." class="w-full pl-11 pr-10 py-2 bg-gray-50/50 border-none rounded-2xl focus:ring-2 focus:ring-[#39ADA8] outline-none text-sm placeholder:text-gray-400 transition-all" />
+              <button v-if="searchQuery" @click="searchQuery = ''; onSearchInput()" class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 transition-colors"><FeatherIcon name="x" class="w-4 h-4" /></button>
+            </div>
+          </div>
+
+          <!-- Items Grid -->
+          <div class="flex-1 overflow-y-auto">
+            <div v-if="displayedItems.length === 0" class="text-center py-12 text-gray-500">
+              <FeatherIcon name="package" class="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>No items found</p>
+            </div>
+            <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-4">
+              <button v-for="item in displayedItems" :key="item.name" @click="selectItem(item)" class="group bg-white p-2.5 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 transition-all text-left flex flex-col aspect-square relative active:scale-[0.98]">
+                <div :class="['absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-[9px] font-bold shadow-sm z-10', (item.stock_qty || 0) > 0 ? 'bg-[#39ADA8] text-white' : 'bg-red-500 text-white']">{{ item.stock_qty || 0 }}</div>
+                <div class="flex flex-col h-full overflow-hidden">
+                  <div class="h-1/2 w-full rounded-xl bg-gray-50 mb-2 overflow-hidden flex items-center justify-center border border-gray-50 group-hover:border-[#39ADA8]/20 shrink-0">
+                    <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
+                    <FeatherIcon v-else name="package" class="w-6 h-6 text-gray-200" />
+                  </div>
+                  <div class="flex-1 flex flex-col justify-between min-h-0">
+                    <div class="min-h-0">
+                      <p class="text-[9px] font-bold text-[#39ADA8] uppercase mb-0.5 truncate tracking-wider">{{ item.brand || 'No Brand' }}</p>
+                      <p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2 group-hover:text-[#39ADA8] transition-colors">{{ item.item_name || item.name }}</p>
+                    </div>
+                    <div class="mt-auto pt-1.5 border-t border-gray-50">
+                      <p class="text-xs font-black text-gray-900">{{ formatCurrency(getPrice(item)).replace(' DA', '') }} <span class="text-[9px] font-normal text-gray-400">DA</span></p>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <!-- Invoices List -->
+          <div class="h-12 shrink-0 flex items-center justify-between my-2">
+            <h2 class="text-xl font-black text-gray-900">Invoices</h2>
+            <button @click="currentMode = 'pos'" class="text-xs font-bold text-[#39ADA8] flex items-center gap-1">
+              <FeatherIcon name="arrow-left" class="w-3.5 h-3.5" />
+              Back to Items
             </button>
           </div>
-        </div>
+          <div class="flex-1 overflow-y-auto">
+            <!-- Invoice items content placeholder -->
+            <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-50">
+              <FeatherIcon name="file-text" class="w-16 h-16 mb-4" />
+              <p class="font-bold">No active invoices</p>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
-    <!-- Right Section: Orders Panel (Takes whole height as a card) -->
+    <!-- Right Section (Changes on Payment) -->
     <div class="w-[400px] flex flex-col bg-white overflow-hidden shrink-0 border border-gray-200 h-[calc(100vh-2rem)] m-4 rounded-2xl shadow-2xl shadow-gray-200/50">
-      <!-- Multi-Order Tabs (Top of Right Section) -->
-      <div class="flex items-center gap-1 p-2 bg-gray-50 border-b overflow-x-auto no-scrollbar shrink-0">
-        <button v-for="order in orders" :key="order.id" @click="activeOrderId = order.id; focusedField = 'qty'" :class="['px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 shrink-0 border', (activeOrderId === order.id || (!activeOrderId && orders[0].id === order.id)) ? 'bg-white text-[#39ADA8] border-[#39ADA8]/20 shadow-sm' : 'text-gray-500 border-transparent hover:bg-white/50']">
-          <span class="truncate max-w-[80px]">{{ order.selectedCustomer?.customer_name || order.name }}</span>
-          <FeatherIcon v-if="orders.length > 1" @click.stop="closeOrder(order.id)" name="x" class="w-3 h-3 hover:text-red-500" />
-        </button>
-        <button @click="addNewOrder" class="p-1.5 text-gray-400 hover:text-[#39ADA8] transition-colors"><FeatherIcon name="plus" class="w-4 h-4" /></button>
-      </div>
+      <template v-if="currentMode === 'pos'">
+        <!-- Existing Order/Cart UI -->
+        <!-- Multi-Order Tabs -->
+        <div class="flex items-center gap-1 p-2 bg-gray-50 border-b overflow-x-auto no-scrollbar shrink-0">
+          <button v-for="order in orders" :key="order.id" @click="activeOrderId = order.id; focusedField = 'qty'" :class="['px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 shrink-0 border', (activeOrderId === order.id || (!activeOrderId && orders[0].id === order.id)) ? 'bg-white text-[#39ADA8] border-[#39ADA8]/20 shadow-sm' : 'text-gray-500 border-transparent hover:bg-white/50']">
+            <span class="truncate max-w-[80px]">{{ order.selectedCustomer?.customer_name || order.name }}</span>
+            <FeatherIcon v-if="orders.length > 1" @click.stop="closeOrder(order.id)" name="x" class="w-3 h-3 hover:text-red-500" />
+          </button>
+          <button @click="addNewOrder" class="p-1.5 text-gray-400 hover:text-[#39ADA8] transition-colors"><FeatherIcon name="plus" class="w-4 h-4" /></button>
+        </div>
 
-      <!-- Customer & Price List -->
-      <div class="p-4 space-y-3 border-b shrink-0 bg-white">
-        <div class="grid grid-cols-2 gap-3">
-          <div id="customer-selection-container" class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <FeatherIcon name="user" class="w-3.5 h-3.5" />
+        <!-- Customer & Price List -->
+        <div class="p-4 space-y-3 border-b shrink-0 bg-white">
+          <div class="grid grid-cols-2 gap-3">
+            <div id="customer-selection-container" class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                <FeatherIcon name="user" class="w-3.5 h-3.5" />
+              </div>
+              <input v-model="customerSearch" @focus="showCustomerDropdown = true" @input="onCustomerInput" type="text" placeholder="Customer..." class="w-full pl-9 pr-8 py-2 bg-gray-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#39ADA8] transition-all placeholder:text-gray-400" />
+              <div v-if="showCustomerDropdown && filteredCustomers.length > 0" class="absolute top-full left-0 right-0 mt-2 bg-white border rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto">
+                <button v-for="c in filteredCustomers" :key="c.name" @click="selectCustomer(c)" class="w-full text-left px-4 py-2.5 hover:bg-[#39ADA8]/5 border-b last:border-0">
+                  <p class="font-bold text-gray-900 text-xs">{{ c.customer_name }}</p>
+                  <p class="text-[10px] text-gray-400">{{ c.mobile_no || 'No mobile' }}</p>
+                </button>
+              </div>
             </div>
-            <input v-model="customerSearch" @focus="showCustomerDropdown = true" @input="onCustomerInput" type="text" placeholder="Customer..." class="w-full pl-9 pr-8 py-2 bg-gray-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#39ADA8] transition-all placeholder:text-gray-400" />
-            <div v-if="showCustomerDropdown && filteredCustomers.length > 0" class="absolute top-full left-0 right-0 mt-2 bg-white border rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto">
-              <button v-for="c in filteredCustomers" :key="c.name" @click="selectCustomer(c)" class="w-full text-left px-4 py-2.5 hover:bg-[#39ADA8]/5 border-b last:border-0">
-                <p class="font-bold text-gray-900 text-xs">{{ c.customer_name }}</p>
-                <p class="text-[10px] text-gray-400">{{ c.mobile_no || 'No mobile' }}</p>
-              </button>
-            </div>
-          </div>
-          <div id="pricelist-selection-container" class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <FeatherIcon name="tag" class="w-3.5 h-3.5" />
-            </div>
-            <input v-model="priceListSearch" @focus="showPriceListDropdown = true" @input="onPriceListInput" type="text" placeholder="Price List..." class="w-full pl-9 pr-8 py-2 bg-gray-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#39ADA8] transition-all placeholder:text-gray-400" />
-            <div v-if="showPriceListDropdown && filteredPriceLists.length > 0" class="absolute top-full left-0 right-0 mt-2 bg-white border rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto">
-              <button v-for="pl in filteredPriceLists" :key="pl.name" @click="selectPriceList(pl)" class="w-full text-left px-4 py-2.5 hover:bg-[#39ADA8]/5 border-b last:border-0">
-                <p class="font-semibold text-gray-900 text-xs">{{ pl.name }}</p>
-              </button>
+            <div id="pricelist-selection-container" class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                <FeatherIcon name="tag" class="w-3.5 h-3.5" />
+              </div>
+              <input v-model="priceListSearch" @focus="showPriceListDropdown = true" @input="onPriceListInput" type="text" placeholder="Price List..." class="w-full pl-9 pr-8 py-2 bg-gray-50 border-none rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#39ADA8] transition-all placeholder:text-gray-400" />
+              <div v-if="showPriceListDropdown && filteredPriceLists.length > 0" class="absolute top-full left-0 right-0 mt-2 bg-white border rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto">
+                <button v-for="pl in filteredPriceLists" :key="pl.name" @click="selectPriceList(pl)" class="w-full text-left px-4 py-2.5 hover:bg-[#39ADA8]/5 border-b last:border-0">
+                  <p class="font-semibold text-gray-900 text-xs">{{ pl.name }}</p>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Cart List (Scrollable) -->
-      <div class="flex-1 flex flex-col overflow-hidden bg-white">
-        <div v-if="cart.length === 0" class="flex-1 flex items-center justify-center text-gray-400 p-6 text-center opacity-50">
-          <div><FeatherIcon name="shopping-cart" class="w-12 h-12 mx-auto mb-3 opacity-20" /><p class="text-sm italic font-bold">Cart is empty</p></div>
-        </div>
-        <div v-else class="flex-1 flex flex-col overflow-hidden">
-          <div class="flex items-center gap-2 px-6 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b shrink-0 bg-white">
-            <span class="w-7"></span><span class="flex-1">Name</span><span class="shrink-0 w-14 text-center">Qty</span><span class="shrink-0 w-20 text-right pr-2">Price</span>
+        <!-- Cart List (Scrollable) -->
+        <div class="flex-1 flex flex-col overflow-hidden bg-white">
+          <div v-if="cart.length === 0" class="flex-1 flex items-center justify-center text-gray-400 p-6 text-center opacity-50">
+            <div><FeatherIcon name="shopping-cart" class="w-12 h-12 mx-auto mb-3 opacity-20" /><p class="text-sm italic font-bold">Cart is empty</p></div>
           </div>
-          <div class="flex-1 overflow-y-auto px-4 py-2 space-y-1">
-            <div v-for="(item, index) in cart" :key="index" @click="activeOrder.selectedItemIndex = index" :class="['h-12 px-2 rounded-xl cursor-pointer border flex items-center gap-2 shrink-0 transition-all duration-200', selectedItemIndex === index ? 'bg-[#39ADA8]/5 border-[#39ADA8]' : 'bg-white border-transparent hover:bg-gray-50']">
-              <button @click.stop="removeFromCart(index)" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:text-red-600 transition-colors"><FeatherIcon name="trash-2" class="w-3.5 h-3.5" /></button>
-              <p class="flex-1 text-xs font-semibold text-gray-900 truncate">{{ item.item_name || item.name }}</p>
-              <button @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'qty'" :class="['shrink-0 w-14 h-8 flex items-center justify-center text-xs rounded-lg transition-all', (selectedItemIndex === index && focusedField === 'qty') ? 'text-[#39ADA8] font-bold bg-[#39ADA8]/10' : 'text-gray-700 hover:bg-gray-100']">{{ item.qty }}</button>
-              <button @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'rate'" :class="['shrink-0 w-20 h-8 flex items-center justify-end px-2 text-xs rounded-lg transition-all', (selectedItemIndex === index && focusedField === 'rate') ? 'text-[#39ADA8] font-bold bg-[#39ADA8]/10' : 'text-[#39ADA8] font-bold hover:bg-gray-100']">{{ formatCurrency(item.standard_rate).replace(' DA', '') }}</button>
+          <div v-else class="flex-1 flex flex-col overflow-hidden">
+            <div class="flex items-center gap-2 px-6 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b shrink-0 bg-white">
+              <span class="w-7"></span><span class="flex-1">Name</span><span class="shrink-0 w-14 text-center">Qty</span><span class="shrink-0 w-20 text-right pr-2">Price</span>
+            </div>
+            <div class="flex-1 overflow-y-auto px-4 py-2 space-y-1">
+              <div v-for="(item, index) in cart" :key="index" @click="activeOrder.selectedItemIndex = index" :class="['h-12 px-2 rounded-xl cursor-pointer border flex items-center gap-2 shrink-0 transition-all duration-200', selectedItemIndex === index ? 'bg-[#39ADA8]/5 border-[#39ADA8]' : 'bg-white border-transparent hover:bg-gray-50']">
+                <button @click.stop="removeFromCart(index)" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:text-red-600 transition-colors"><FeatherIcon name="trash-2" class="w-3.5 h-3.5" /></button>
+                <p class="flex-1 text-xs font-semibold text-gray-900 truncate">{{ item.item_name || item.name }}</p>
+                <button @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'qty'" :class="['shrink-0 w-14 h-8 flex items-center justify-center text-xs rounded-lg transition-all', (selectedItemIndex === index && focusedField === 'qty') ? 'text-[#39ADA8] font-bold bg-[#39ADA8]/10' : 'text-gray-700 hover:bg-gray-100']">{{ item.qty }}</button>
+                <button @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'rate'" :class="['shrink-0 w-20 h-8 flex items-center justify-end px-2 text-xs rounded-lg transition-all', (selectedItemIndex === index && focusedField === 'rate') ? 'text-[#39ADA8] font-bold bg-[#39ADA8]/10' : 'text-[#39ADA8] font-bold hover:bg-gray-100']">{{ formatCurrency(item.standard_rate).replace(' DA', '') }}</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </template>
+      <template v-else>
+        <!-- Customer & Supplier List Card -->
+        <div class="flex flex-col h-full bg-white">
+          <div class="p-4 border-b shrink-0">
+            <div class="flex gap-2">
+              <button class="flex-1 py-2 rounded-xl text-xs font-bold bg-[#39ADA8] text-white">Customers</button>
+              <button class="flex-1 py-2 rounded-xl text-xs font-bold bg-gray-50 text-gray-500">Suppliers</button>
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <div class="space-y-2">
+              <div v-for="c in customers.slice(0, 15)" :key="c.name" class="p-3 bg-gray-50/50 rounded-xl flex items-center gap-3 border border-transparent hover:border-[#39ADA8]/20 transition-all cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-gray-400 border border-gray-100 uppercase">{{ c.customer_name[0] }}</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-bold text-gray-900 truncate">{{ c.customer_name }}</p>
+                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{{ c.mobile_no || 'NO MOBILE' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 border-t">
+            <button class="w-full py-3.5 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-black/10 hover:opacity-90 transition-all">Add New Entity</button>
+          </div>
+        </div>
+      </template>
 
       <!-- Keyboard Area (Fixed at bottom) -->
-      <div class="bg-gray-100 p-1.5 border-t shrink-0">
+      <div v-if="currentMode === 'pos'" class="bg-gray-100 p-1.5 border-t shrink-0">
         <div class="flex items-center justify-between px-3 py-1.5 bg-white rounded-xl mb-1.5 border shadow-sm">
           <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Subtotal</span>
           <span class="text-base font-black text-gray-900">{{ formatCurrency(cartTotal) }}</span>
@@ -373,6 +428,7 @@ export default {
   },
   data() {
     return {
+      currentMode: 'pos', // 'pos' or 'payment'
       searchQuery: '',
       searchTimeout: null,
       activeOrderId: null,
@@ -871,13 +927,10 @@ export default {
       this.cart[index].standard_rate = newRate
     },
     checkout() {
-      if (this.cart.length === 0) return
-      console.log('Checkout:', this.cart)
-      // TODO: Create POS Invoice via Frappe API
+      this.currentMode = 'payment'
+      console.log('Checkout Mode Activated')
+      // Deselect item when entering payment mode
       if (this.activeOrder) {
-        this.activeOrder.cart = []
-        this.activeOrder.selectedCustomer = null
-        this.activeOrder.customerSearch = ''
         this.activeOrder.selectedItemIndex = null
       }
     },
