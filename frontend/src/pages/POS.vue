@@ -445,7 +445,7 @@ export default {
         params: {
           doctype: 'Customer',
           fields: ['name', 'customer_name', 'mobile_no'],
-          limit_page_length: 100,
+          limit_page_length: 2000,
         },
         auto: true,
         onSuccess: (data) => {
@@ -470,6 +470,7 @@ export default {
           doctype: 'Price List',
           fields: ['name'],
           filters: { enabled: 1, selling: 1 },
+          limit_page_length: 100,
         },
         auto: true,
         onSuccess: (data) => {
