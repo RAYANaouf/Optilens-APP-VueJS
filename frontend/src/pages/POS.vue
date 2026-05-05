@@ -1,17 +1,27 @@
 <template>
-  <div class="h-screen bg-gray-50 flex overflow-hidden relative">
+  <div class="h-screen bg-[#44b8b3] flex overflow-hidden relative">
     <!-- Left Section: Top Bar + Item Selector -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Top Action Bar (Left Side Only) -->
-      <div class="h-14 shrink-0 flex items-center justify-between px-6 border-b border-gray-100 bg-white/50 backdrop-blur-md z-[60]">
+      <div class="h-14 shrink-0 flex items-center justify-between px-6 z-[60]">
         <div class="flex items-center gap-4">
           <button 
             @click="showSidebar = true"
-            class="p-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] group"
+            class="p-2.5 bg-white shadow-sm hover:bg-gray-50 rounded-xl transition-all active:scale-[0.98] group flex items-center justify-center border border-white/20"
           >
-            <FeatherIcon name="menu" class="w-5 h-5 text-gray-400 group-hover:text-[#39ADA8] transition-colors" />
+            <FeatherIcon name="chevron-right" class="w-5 h-5 text-black group-hover:translate-x-0.5 transition-transform" stroke-width="3" />
           </button>
-          <h1 class="text-xl font-black text-gray-900 tracking-tight">Optilens <span class="text-[#39ADA8]">POS</span></h1>
+          <h1 class="text-xl font-black text-black tracking-tight flex items-center gap-2">
+            <span>Optilens <span class="text-[#F7471C]">POS</span></span>
+            <div v-if="loginData.profile" class="flex items-center gap-1.5 ml-3 pl-4 border-l border-black/20">
+              <FeatherIcon name="user" class="w-4 h-4 text-black" stroke-width="3" />
+              <span class="text-xs font-black text-black tracking-tight uppercase">{{ loginData.profile }}</span>
+              <div v-if="openingTime" class="flex items-center gap-1.5 ml-2 pl-3 border-l border-black/10">
+                <FeatherIcon name="clock" class="w-3.5 h-3.5 text-black/60" stroke-width="2.5" />
+                <span class="text-xs font-black text-black/60">{{ openingTime }}</span>
+              </div>
+            </div>
+          </h1>
         </div>
         
         <div class="flex items-center gap-3">
@@ -25,7 +35,7 @@
 
           <button 
             @click="checkout"
-            class="flex items-center gap-2 px-4 py-2 bg-[#39ADA8] rounded-xl shadow-sm hover:opacity-90 transition-all active:scale-[0.98] text-sm font-bold text-white shadow-[#39ADA8]/20"
+            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-[#39ADA8] shadow-[#39ADA8]/10"
           >
             <FeatherIcon name="credit-card" class="w-4 h-4" />
             Payment
@@ -385,6 +395,7 @@ export default {
         password: ''
       },
       loginError: '',
+      openingTime: null,
       showDenominations: false,
       denominations: [
         { value: 5, qty: 0 },
@@ -629,6 +640,7 @@ export default {
             this.activeOrder.priceListSearch = profile.selling_price_list || profile.price_list
           }
           this.showLoginModal = false
+          this.setOpeningTime()
           // Start loading items for the profile's warehouse
           this.itemsResource.fetch({ warehouse: profile.warehouse })
         }
@@ -653,12 +665,17 @@ export default {
           }
           this.showLoginModal = false
           this.showDenominations = false
+          this.setOpeningTime()
           this.itemsResource.fetch({ warehouse: profile.warehouse })
         }
       }).catch((err) => {
         this.loginError = 'Failed to create new POS session.'
         console.error(err)
       })
+    },
+    setOpeningTime() {
+      const now = new Date()
+      this.openingTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     },
     handleDenomKey(e, index) {
       if (e.key === 'ArrowDown') {
