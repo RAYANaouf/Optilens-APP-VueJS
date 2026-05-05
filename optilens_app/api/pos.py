@@ -2,7 +2,7 @@ import frappe
 import json
 
 @frappe.whitelist()
-def get_pos_data():
+def get_pos_data(company=None, pos_profile=None):
     # Get all companies
     companies = frappe.get_all("Company", fields=["name", "default_currency"])
     
@@ -12,12 +12,19 @@ def get_pos_data():
         filters={"disabled": 0}
     )
 
-    # Check for active POS Opening Entry for the user
+    # Check for active POS Opening Entry
+    filters = {
+        "user": frappe.session.user,
+        "status": "Open",
+        "docstatus": 1
+    }
+    if company:
+        filters["company"] = company
+    if pos_profile:
+        filters["pos_profile"] = pos_profile
+
     opening_entry = frappe.get_all("POS Opening Entry", 
-        filters={
-            "status": "Open",
-            "docstatus": 1
-        },
+        filters=filters,
         fields=["name", "pos_profile", "company"]
     )
     
@@ -25,6 +32,46 @@ def get_pos_data():
         "companies": companies,
         "profiles": profiles,
         "opening_entry": opening_entry[0] if opening_entry else None
+    }
+
+@frappe.whitelist()
+def create_pos_session(company, pos_profile, denominations):
+    import json
+    if isinstance(denominations, str):
+        denominations = json.loads(denominations)
+    
+    # Calculate opening amount
+    opening_amount = sum(float(d['value']) * int(d['qty']) for d in denominations)
+    
+    # Create POS Opening Entry
+    doc = frappe.get_doc({
+        "doctype": "POS Opening Entry",
+        "company": company,
+        "pos_profile": pos_profile,
+        "user": frappe.session.user,
+        "status": "Open",
+        "period_start_date": frappe.utils.now(),
+        "balance_details": [
+            {
+                "mode_of_payment": "Cash", # Defaulting to Cash, should be from profile
+                "opening_amount": opening_amount
+            }
+        ]
+    })
+    
+    # Add denominations to the document (Frappe standard structure)
+    # Note: Frappe doesn't have a standard list for denominations in Opening Entry, 
+    # but some users use custom tables or just the opening amount. 
+    # Assuming standard Opening Entry for now.
+    
+    doc.insert()
+    doc.submit()
+    
+    return {
+        "name": doc.name,
+        "pos_profile": doc.pos_profile,
+        "company": doc.company,
+        "opening_amount": opening_amount
     }
 
 @frappe.whitelist()
