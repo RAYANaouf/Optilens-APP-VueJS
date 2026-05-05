@@ -20,6 +20,12 @@
                 <FeatherIcon name="clock" class="w-3.5 h-3.5 text-black/60" stroke-width="2.5" />
                 <span class="text-xs font-black text-black/60">{{ openingTime }}</span>
               </div>
+              <div class="flex items-center gap-1.5 ml-2 pl-3 border-l border-black/10">
+                <div :class="['w-2 h-2 rounded-full', isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500']"></div>
+                <span :class="['text-[10px] font-black uppercase tracking-tighter', isOnline ? 'text-green-600' : 'text-red-600']">
+                  {{ isOnline ? 'Online' : 'Offline' }}
+                </span>
+              </div>
             </div>
           </h1>
         </div>
@@ -396,6 +402,7 @@ export default {
       },
       loginError: '',
       openingTime: null,
+      isOnline: navigator.onLine,
       showDenominations: false,
       denominations: [
         { value: 5, qty: 0 },
