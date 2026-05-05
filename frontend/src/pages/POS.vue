@@ -3,7 +3,7 @@
     <!-- Left Section: Top Bar + Item Selector -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Top Action Bar (Left Side Only) -->
-      <div class="h-14 shrink-0 flex items-center justify-between px-6 z-[60]">
+      <div class="h-14 shrink-0 flex items-center justify-between px-6 z-[60] my-4">
         <div class="flex items-center gap-4">
           <button 
             @click="showSidebar = true"
@@ -89,7 +89,7 @@
       </div>
 
       <!-- Left Card (Changes on Payment) -->
-      <div class="flex-1 flex flex-col px-6 pb-2 overflow-hidden border border-gray-200 m-4 rounded-2xl bg-white shadow-sm">
+      <div class="flex-1 flex flex-col px-6 pb-2 overflow-hidden border border-gray-200 mx-4 mb-4 rounded-2xl bg-white shadow-sm">
         <template v-if="currentMode === 'pos'">
           <!-- Search Bar -->
           <div class="h-12 shrink-0 flex items-center my-2">
@@ -109,8 +109,23 @@
               <p>No items found</p>
             </div>
             <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-4">
-              <button v-for="item in displayedItems" :key="item.name" @click="selectItem(item)" class="group bg-white p-2.5 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 transition-all text-left flex flex-col aspect-square relative active:scale-[0.98]">
+              <button 
+                v-for="item in displayedItems" 
+                :key="item.name" 
+                @click="selectItem(item)" 
+                :class="[
+                  'group bg-white p-2.5 rounded-2xl shadow-sm hover:shadow-md border transition-all text-left flex flex-col aspect-square relative active:scale-[0.98]',
+                  getItemCartQty(item.name) > 0 ? 'border-[#39ADA8]' : 'border-gray-100'
+                ]"
+              >
+                <!-- Stock Badge -->
                 <div :class="['absolute top-2 right-2 px-1.5 py-0.5 rounded-lg text-[9px] font-bold shadow-sm z-10', (item.stock_qty || 0) > 0 ? 'bg-[#39ADA8] text-white' : 'bg-red-500 text-white']">{{ item.stock_qty || 0 }}</div>
+                
+                <!-- Added to Cart Badge -->
+                <div v-if="getItemCartQty(item.name) > 0" class="absolute top-2 left-2 px-1.5 py-0.5 rounded-lg bg-orange-500 text-white text-[9px] font-bold shadow-sm z-10 animate-in fade-in zoom-in duration-300">
+                  {{ getItemCartQty(item.name) }} in cart
+                </div>
+
                 <div class="flex flex-col h-full overflow-hidden">
                   <div class="h-1/2 w-full rounded-xl bg-gray-50 mb-2 overflow-hidden flex items-center justify-center border border-gray-50 group-hover:border-[#39ADA8]/20 shrink-0">
                     <img v-if="item.image" :src="item.image" class="w-full h-full object-cover" />
@@ -122,7 +137,7 @@
                       <p class="text-[11px] font-bold text-gray-900 leading-tight line-clamp-2 group-hover:text-[#39ADA8] transition-colors">{{ item.item_name || item.name }}</p>
                     </div>
                     <div class="mt-auto pt-1.5 border-t border-gray-50">
-                      <p class="text-xs font-black text-gray-900">{{ formatCurrency(getPrice(item)).replace(' DA', '') }} <span class="text-[9px] font-normal text-gray-400">DA</span></p>
+                      <p class="text-xs font-black text-gray-900">{{ formatCurrency(getItemGridPrice(item)).replace(' DA', '') }} <span class="text-[9px] font-normal text-gray-400">DA</span></p>
                     </div>
                   </div>
                 </div>
@@ -131,15 +146,123 @@
           </div>
         </template>
         <template v-else>
-          <!-- Invoices List -->
-          <div class="h-12 shrink-0 flex items-center justify-between my-2">
-            <h2 class="text-xl font-black text-gray-900">Invoices</h2>
+          <div v-if="selectedCustomer || selectedSupplier" class="my-4 space-y-4 shrink-0">
+            <div class="flex items-end gap-3">
+              <div class="flex-1 space-y-1.5">
+                <div class="flex items-center justify-between px-1">
+                  <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Amount</label>
+                </div>
+                <div class="relative">
+                  <input 
+                    v-model="paymentAmount"
+                    type="number" 
+                    placeholder="0.00" 
+                    class="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl outline-none focus:border-[#39ADA8] transition-all font-bold text-lg text-gray-900"
+                  />
+                  <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">DA</span>
+                </div>
+              </div>
+              
+              <button 
+                @click="processPayment"
+                class="h-[52px] px-8 bg-[#39ADA8] hover:bg-[#2d8a86] text-white rounded-xl font-black text-sm uppercase tracking-widest transition-all active:scale-[0.98] flex items-center gap-2"
+              >
+                <FeatherIcon name="credit-card" class="w-4 h-4" />
+                Pay
+              </button>
+
+              <!-- Selected Invoices Total Box -->
+              <div class="h-[52px] px-4 bg-gray-50 rounded-xl flex flex-col justify-center border border-gray-200 min-w-[120px]">
+                <span class="text-[8px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Selected Total</span>
+                <span class="text-xs font-black text-gray-900 leading-none">{{ formatCurrency(selectedTotal) }}</span>
+              </div>
+
+              <!-- Overall Total Debt Box -->
+              <div class="h-[52px] px-4 bg-gray-50 rounded-xl flex flex-col justify-center border border-gray-200 min-w-[120px]">
+                <span class="text-[8px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Total Debt</span>
+                <span class="text-xs font-black text-red-500 leading-none">{{ formatCurrency(totalOutstanding) }}</span>
+              </div>
+
+              <button 
+                @click="printCustomerInvoices"
+                class="h-[52px] px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center border border-gray-200"
+                title="Print Statement"
+              >
+                <FeatherIcon name="printer" class="w-5 h-5" />
+              </button>
+
+              <button 
+                v-if="invoices.length > 0"
+                @click="toggleSelectAllInvoices"
+                class="h-[52px] px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center border border-gray-200"
+                :title="selectedInvoiceNames.length === invoices.length ? 'Deselect All' : 'Select All'"
+              >
+                <FeatherIcon :name="selectedInvoiceNames.length === invoices.length ? 'minus-square' : 'check-square'" class="w-5 h-5" />
+              </button>
+            </div>
+            <div class="h-px bg-gray-100 w-full"></div>
           </div>
-          <div class="flex-1 overflow-y-auto">
-            <!-- Invoice items content placeholder -->
-            <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-50">
+
+          <div class="flex-1 overflow-y-auto pr-2 -mr-2">
+            <div v-if="customerInvoicesResource.loading || supplierInvoicesResource.loading" class="flex flex-col items-center justify-center h-full py-12">
+              <div class="w-10 h-10 border-4 border-[#39ADA8]/20 border-t-[#39ADA8] rounded-full animate-spin mb-4"></div>
+              <p class="text-sm font-bold text-gray-400 uppercase tracking-widest">Fetching Invoices...</p>
+            </div>
+            <div v-else-if="invoices.length > 0" class="space-y-3 pb-4">
+              <div 
+                v-for="inv in invoices" 
+                :key="inv.name" 
+                @click="toggleInvoiceSelection(inv)"
+                :class="[
+                  'px-4 py-2.5 rounded-xl border transition-all group cursor-pointer flex items-center gap-3',
+                  selectedInvoiceNames.includes(inv.name) 
+                    ? 'bg-[#39ADA8]/5 border-[#39ADA8]/30 shadow-sm' 
+                    : 'bg-gray-50/50 border-transparent hover:border-[#39ADA8]/20'
+                ]"
+              >
+                <!-- Checkbox Indicator -->
+                <div class="shrink-0">
+                  <div :class="[
+                    'w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all',
+                    selectedInvoiceNames.includes(inv.name)
+                      ? 'bg-[#39ADA8] border-[#39ADA8]'
+                      : 'bg-white border-gray-200 group-hover:border-[#39ADA8]/50'
+                  ]">
+                    <FeatherIcon v-if="selectedInvoiceNames.includes(inv.name)" name="check" class="w-2.5 h-2.5 text-white" stroke-width="5" />
+                  </div>
+                </div>
+
+                <div class="flex-1 min-w-0 flex items-center justify-between gap-4">
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                      <span class="text-[11px] font-black text-gray-900 group-hover:text-[#39ADA8] transition-colors truncate">{{ inv.name }}</span>
+                      <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">{{ inv.posting_date }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-[8px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Grand Total</span>
+                      <span class="text-[10px] font-bold text-gray-700 whitespace-nowrap">{{ formatCurrency(inv.grand_total) }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="text-right flex items-center gap-4 shrink-0">
+                    <div class="flex flex-col items-end">
+                      <span class="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Outstanding</span>
+                      <span class="text-xs font-black text-red-500 whitespace-nowrap">{{ formatCurrency(inv.outstanding_amount) }}</span>
+                    </div>
+                    
+                    <button 
+                      @click.stop="paySingleInvoice(inv)"
+                      class="px-3 py-1.5 bg-[#39ADA8]/10 hover:bg-[#39ADA8] text-[#39ADA8] hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.95]"
+                    >
+                      Pay
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="flex flex-col items-center justify-center h-full text-gray-400 opacity-50 py-12">
               <FeatherIcon name="file-text" class="w-16 h-16 mb-4" />
-              <p class="font-bold">No active invoices</p>
+              <p class="font-bold">{{ (selectedCustomer || selectedSupplier) ? 'No outstanding invoices' : 'Select a customer or supplier to view invoices' }}</p>
             </div>
           </div>
         </template>
@@ -233,9 +356,42 @@
               Suppliers
             </button>
           </div>
+          
+          <!-- Entity Search Bar -->
+          <div class="px-4 py-3 border-b shrink-0">
+            <div class="relative group w-full">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <FeatherIcon name="search" class="w-3.5 h-3.5 text-gray-400 group-focus-within:text-[#39ADA8] transition-colors" />
+              </div>
+              <input 
+                v-model="entitySearchQuery" 
+                type="text" 
+                :placeholder="'Search ' + entityMode + 's...'" 
+                class="w-full pl-9 pr-8 py-2.5 bg-gray-50/50 border-none rounded-xl focus:ring-2 focus:ring-[#39ADA8] outline-none text-xs placeholder:text-gray-400 transition-all" 
+              />
+              <button 
+                v-if="entitySearchQuery" 
+                @click="entitySearchQuery = ''" 
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <FeatherIcon name="x" class="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
           <div class="flex-1 overflow-y-auto p-4">
             <div v-if="entityMode === 'customer'" class="space-y-2">
-              <div v-for="c in customers.slice(0, 15)" :key="c.name" class="p-3 bg-gray-50/50 rounded-xl flex items-center gap-3 border border-transparent hover:border-[#39ADA8]/20 transition-all cursor-pointer">
+              <div 
+                v-for="c in filteredEntityCustomers" 
+                :key="c.name" 
+                @click="selectCustomer(c)"
+                :class="[
+                  'p-3 rounded-xl flex items-center gap-3 border transition-all cursor-pointer active:scale-[0.99]',
+                  activeOrder?.selectedCustomer?.name === c.name 
+                    ? 'bg-[#39ADA8]/10 border-[#39ADA8]/30 shadow-sm' 
+                    : 'bg-gray-50/50 border-transparent hover:border-[#39ADA8]/20'
+                ]"
+              >
                 <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-gray-400 border border-gray-100 uppercase">{{ c.customer_name[0] }}</div>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-bold text-gray-900 truncate">{{ c.customer_name }}</p>
@@ -243,9 +399,28 @@
                 </div>
               </div>
             </div>
-            <div v-else class="flex flex-col items-center justify-center h-full text-gray-400 opacity-50 py-12">
-              <FeatherIcon name="truck" class="w-12 h-12 mb-3" />
-              <p class="text-sm font-bold">Suppliers list coming soon</p>
+            <div v-else class="space-y-2">
+              <div 
+                v-for="s in filteredEntitySuppliers" 
+                :key="s.name" 
+                @click="selectSupplier(s)"
+                :class="[
+                  'p-3 rounded-xl flex items-center gap-3 border transition-all cursor-pointer active:scale-[0.99]',
+                  activeOrder?.selectedSupplier?.name === s.name 
+                    ? 'bg-[#39ADA8]/10 border-[#39ADA8]/30 shadow-sm' 
+                    : 'bg-gray-50/50 border-transparent hover:border-[#39ADA8]/20'
+                ]"
+              >
+                <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-gray-400 border border-gray-100 uppercase">{{ s.supplier_name[0] }}</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-bold text-gray-900 truncate">{{ s.supplier_name }}</p>
+                  <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{{ s.mobile_no || 'NO MOBILE' }}</p>
+                </div>
+              </div>
+              <div v-if="filteredEntitySuppliers.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-400 opacity-50">
+                <FeatherIcon name="truck" class="w-12 h-12 mb-3" />
+                <p class="text-sm font-bold">No suppliers found</p>
+              </div>
             </div>
           </div>
         </div>
@@ -462,6 +637,8 @@ export default {
     return {
       currentMode: 'pos', // 'pos' or 'payment'
       entityMode: 'customer', // 'customer' or 'supplier'
+      entitySearchQuery: '',
+      paymentAmount: 0,
       searchQuery: '',
       searchTimeout: null,
       activeOrderId: null,
@@ -471,6 +648,7 @@ export default {
           name: 'Order 1',
           cart: [],
           selectedCustomer: null,
+          selectedSupplier: null,
           customerSearch: '',
           selectedPriceList: null,
           priceListSearch: 'Standard Selling',
@@ -481,6 +659,8 @@ export default {
       suppliers: [], // Global suppliers list
       priceLists: [], // Global price lists
       items: [], // Global items list
+      invoices: [], // Selected customer invoices
+      selectedInvoiceNames: [], // Array of invoice names selected for payment
       showCustomerDropdown: false,
       showPriceListDropdown: false,
       focusedField: 'qty', // 'qty' or 'rate'
@@ -523,6 +703,14 @@ export default {
             // Pre-select based on active opening entry
             this.loginData.company = data.opening_entry.company
             this.loginData.profile = data.opening_entry.pos_profile
+            
+            // Fetch items for the active session's profile
+            const profile = this.availableProfiles.find(p => p.name === data.opening_entry.pos_profile)
+            if (profile) {
+              this.itemsResource.fetch({
+                priceLists: JSON.stringify([{ name: profile.selling_price_list }])
+              })
+            }
           }
         }
       }),
@@ -545,8 +733,8 @@ export default {
         url: 'frappe.client.get_list',
         params: {
           doctype: 'Supplier',
-          fields: ['name', 'supplier_name'],
-          limit_page_length: 100,
+          fields: ['name', 'supplier_name', 'mobile_no'],
+          limit_page_length: 1000,
         },
         auto: true,
         onSuccess: (data) => {
@@ -564,7 +752,6 @@ export default {
         auto: true,
         onSuccess: (data) => {
           this.priceLists = data
-          this.itemsResource.fetch()
         }
       }),
       itemsResource: createResource({
@@ -575,6 +762,18 @@ export default {
         onSuccess: (data) => {
           this.items = data
           // All steps are auto-managed via computed, popup closes when all ready
+        }
+      }),
+      customerInvoicesResource: createResource({
+        url: 'optilens_app.api.pos.get_customer_invoices',
+        onSuccess: (data) => {
+          this.invoices = data
+        }
+      }),
+      supplierInvoicesResource: createResource({
+        url: 'optilens_app.api.pos.get_supplier_invoices',
+        onSuccess: (data) => {
+          this.invoices = data
         }
       })
     }
@@ -610,11 +809,39 @@ export default {
       const order = this.orders.find(o => o.id === this.activeOrderId)
       return order || this.orders[0]
     },
+    filteredEntityCustomers() {
+      if (!this.entitySearchQuery) return this.customers
+      const q = this.entitySearchQuery.toLowerCase()
+      return this.customers.filter(c => 
+        c.customer_name.toLowerCase().includes(q) || 
+        (c.mobile_no && c.mobile_no.includes(q))
+      )
+    },
+    filteredEntitySuppliers() {
+      if (!this.entitySearchQuery) return this.suppliers
+      const q = this.entitySearchQuery.toLowerCase()
+      return this.suppliers.filter(s => 
+        s.supplier_name.toLowerCase().includes(q) || 
+        (s.mobile_no && s.mobile_no.includes(q))
+      )
+    },
+    totalOutstanding() {
+      if (!this.invoices) return 0
+      return this.invoices.reduce((sum, inv) => sum + (inv.outstanding_amount || 0), 0)
+    },
+    selectedTotal() {
+      if (!this.invoices || !this.selectedInvoiceNames) return 0
+      const selected = this.invoices.filter(inv => this.selectedInvoiceNames.includes(inv.name))
+      return selected.reduce((sum, inv) => sum + (inv.outstanding_amount || 0), 0)
+    },
     cart() {
       return this.activeOrder?.cart || []
     },
     selectedCustomer() {
       return this.activeOrder?.selectedCustomer || null
+    },
+    selectedSupplier() {
+      return this.activeOrder?.selectedSupplier || null
     },
     selectedPriceList() {
       return this.activeOrder?.selectedPriceList || null
@@ -758,26 +985,41 @@ export default {
     handleOpenSession() {
       this.loginError = ''
       
+      const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+      if (!profile) {
+        this.loginError = 'Profile not found.'
+        return
+      }
+
       this.createSessionResource.submit({
         company: this.loginData.company,
         pos_profile: this.loginData.profile,
         denominations: this.denominations
-      }).then((data) => {
-        const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
-        if (profile) {
-          if (this.activeOrder) {
-            this.activeOrder.selectedPriceList = { name: profile.selling_price_list || profile.price_list }
-            this.activeOrder.priceListSearch = profile.selling_price_list || profile.price_list
-          }
-          this.showLoginModal = false
-          this.showDenominations = false
-          this.setOpeningTime()
-          this.itemsResource.fetch({ warehouse: profile.warehouse })
-        }
+      }).then(() => {
+        // Fetch items with the correct price list after session creation
+        this.itemsResource.fetch({
+          priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
+          warehouse: profile.warehouse
+        })
+        this.showLoginModal = false
+        this.showDenominations = false
+        this.setOpeningTime()
       }).catch((err) => {
         this.loginError = 'Failed to create new POS session.'
         console.error(err)
       })
+    },
+    confirmLogin() {
+      // This is used when a session already exists
+      const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+      if (profile) {
+        this.itemsResource.fetch({
+          priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
+          warehouse: profile.warehouse
+        })
+        this.showLoginModal = false
+        this.setOpeningTime()
+      }
     },
     setOpeningTime() {
       const now = new Date()
@@ -854,8 +1096,22 @@ export default {
       }
     },
     getPrice(item) {
-      const priceList = this.selectedPriceList?.name || 'Standard Selling'
-      const priceObj = item.prices?.find(p => p.price_list === priceList)
+      // For the item card, respect the manual selection
+      const priceList = this.selectedPriceList?.name
+      if (priceList) {
+        const priceObj = item.prices?.find(p => p.price_list === priceList)
+        if (priceObj) return priceObj.price_list_rate
+      }
+      
+      // Fallback to POS Profile price list
+      return this.getItemGridPrice(item)
+    },
+    getItemGridPrice(item) {
+      // Strictly use POS Profile selling_price_list for the grid
+      const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+      const defaultPriceList = profile ? profile.selling_price_list : 'Standard Selling'
+      
+      const priceObj = item.prices?.find(p => p.price_list === defaultPriceList)
       return priceObj ? priceObj.price_list_rate : (item.standard_rate || 0)
     },
     handleKeyboardInput(val) {
@@ -916,6 +1172,48 @@ export default {
         this.activeOrder.selectedCustomer = customer
         this.activeOrder.customerSearch = customer.customer_name
         this.showCustomerDropdown = false
+        
+        // Reset selection and clear previous invoices to show loading state
+        this.selectedInvoiceNames = []
+        this.paymentAmount = 0
+        this.invoices = []
+        
+        // Fetch invoices for the selected customer
+        this.customerInvoicesResource.fetch({
+          customer: customer.name
+        })
+      }
+    },
+    toggleInvoiceSelection(invoice) {
+      const index = this.selectedInvoiceNames.indexOf(invoice.name)
+      if (index === -1) {
+        this.selectedInvoiceNames = [...this.selectedInvoiceNames, invoice.name]
+      } else {
+        const newSelection = [...this.selectedInvoiceNames]
+        newSelection.splice(index, 1)
+        this.selectedInvoiceNames = newSelection
+      }
+    },
+    toggleSelectAllInvoices() {
+      if (this.selectedInvoiceNames.length === this.invoices.length) {
+        this.selectedInvoiceNames = []
+      } else {
+        this.selectedInvoiceNames = this.invoices.map(inv => inv.name)
+      }
+    },
+    selectSupplier(supplier) {
+      if (this.activeOrder) {
+        this.activeOrder.selectedSupplier = supplier
+        
+        // Reset selection and clear previous invoices to show loading state
+        this.selectedInvoiceNames = []
+        this.paymentAmount = 0
+        this.invoices = []
+        
+        // Fetch invoices for the selected supplier
+        this.supplierInvoicesResource.fetch({
+          supplier: supplier.name
+        })
       }
     },
     onSearchInput() {
@@ -931,6 +1229,11 @@ export default {
         this.showCustomerDropdown = false
       }
     },
+    getItemCartQty(itemCode) {
+      if (!this.cart) return 0
+      const cartItem = this.cart.find(i => i.name === itemCode)
+      return cartItem ? cartItem.qty : 0
+    },
     selectItem(item) {
       // Add item to cart directly on click (qty 1)
       const existingIndex = this.cart.findIndex(i => i.name === item.name)
@@ -938,8 +1241,9 @@ export default {
         this.cart[existingIndex].qty += 1
         this.activeOrder.selectedItemIndex = existingIndex
       } else {
-        // Use the rate from the displayed item (which already accounted for the price list)
-        this.cart.push({ ...item, qty: 1 })
+        // Use the rate from the POS Profile's default price list
+        const gridPrice = this.getItemGridPrice(item)
+        this.cart.push({ ...item, qty: 1, standard_rate: gridPrice })
         this.activeOrder.selectedItemIndex = this.cart.length - 1
       }
     },
@@ -967,6 +1271,35 @@ export default {
       if (this.activeOrder) {
         this.activeOrder.selectedItemIndex = null
       }
+    },
+    paySingleInvoice(invoice) {
+      // Set payment amount to this specific invoice's outstanding
+      this.paymentAmount = invoice.outstanding_amount
+      // Select only this invoice for context
+      this.selectedInvoiceNames = [invoice.name]
+      
+      console.log('Initiating payment for single invoice:', invoice.name, 'Amount:', this.paymentAmount)
+      // You can either trigger processPayment immediately or let the user review
+      // For now, let's just highlight it and let the user click the main Pay button
+      // Or we can call processPayment() directly if you prefer
+    },
+    processPayment() {
+      if (!this.paymentAmount || this.paymentAmount <= 0) {
+        alert('Please enter a valid payment amount')
+        return
+      }
+      console.log('Processing payment of', this.paymentAmount, 'for customer', this.selectedCustomer?.name)
+      // TODO: Implement actual payment recording logic
+      alert(`Processing payment of ${this.formatCurrency(this.paymentAmount)}`)
+    },
+    printCustomerInvoices() {
+      if (!this.invoices || this.invoices.length === 0) {
+        alert('No invoices to print')
+        return
+      }
+      console.log('Printing outstanding invoices for customer:', this.selectedCustomer?.name)
+      // TODO: Implement actual printing logic (e.g., generating a PDF statement)
+      alert('Printing customer statement...')
     },
     printReceipt() {
       if (this.cart.length === 0) return

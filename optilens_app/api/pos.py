@@ -174,3 +174,43 @@ def get_item(priceLists=None, warehouse=None):
         item["stock_qty"] = qty_map.get(item_code, 0) - pos_map.get(item_code, 0)
 
     return items
+
+@frappe.whitelist()
+def get_customer_invoices(customer):
+    if not customer:
+        return []
+
+    invoices = frappe.get_all(
+        "Sales Invoice",
+        filters={
+            "customer": customer,
+            "docstatus": 1,
+            "outstanding_amount": [">", 0]
+        },
+        fields=[
+            "name", "posting_date", "grand_total",
+            "outstanding_amount", "currency", "due_date"
+        ],
+        order_by="posting_date desc"
+    )
+    return invoices
+
+@frappe.whitelist()
+def get_supplier_invoices(supplier):
+    if not supplier:
+        return []
+
+    invoices = frappe.get_all(
+        "Purchase Invoice",
+        filters={
+            "supplier": supplier,
+            "docstatus": 1,
+            "outstanding_amount": [">", 0]
+        },
+        fields=[
+            "name", "posting_date", "grand_total",
+            "outstanding_amount", "currency", "due_date"
+        ],
+        order_by="posting_date desc"
+    )
+    return invoices
