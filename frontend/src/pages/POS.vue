@@ -11,26 +11,30 @@
           >
             <FeatherIcon name="chevron-right" class="w-5 h-5 text-black group-hover:translate-x-0.5 transition-transform" stroke-width="3" />
           </button>
-          <h1 class="text-xl font-black text-black tracking-tight flex items-center gap-2">
+          <h1 class="text-5xl font-black text-black tracking-tight flex items-center gap-2">
             <span>Optilens <span class="text-[#F7471C]">POS</span></span>
             <div v-if="loginData.profile" class="flex items-center gap-1.5 ml-3 pl-4 border-l border-black/20">
               <FeatherIcon name="user" class="w-4 h-4 text-black" stroke-width="3" />
               <span class="text-xs font-black text-black tracking-tight uppercase">{{ loginData.profile }}</span>
               <div v-if="openingTime" class="flex items-center gap-1.5 ml-2 pl-3 border-l border-black/10">
-                <FeatherIcon name="clock" class="w-3.5 h-3.5 text-black/60" stroke-width="2.5" />
-                <span class="text-xs font-black text-black/60">{{ openingTime }}</span>
-              </div>
-              <div class="flex items-center gap-1.5 ml-2 pl-3 border-l border-black/10">
-                <div :class="['w-2 h-2 rounded-full', isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500']"></div>
-                <span :class="['text-[10px] font-black uppercase tracking-tighter', isOnline ? 'text-green-600' : 'text-red-600']">
-                  {{ isOnline ? 'Online' : 'Offline' }}
-                </span>
+                <FeatherIcon name="clock" class="w-3.5 h-3.5 text-black" stroke-width="2.5" />
+                <span class="text-xs font-black text-black">{{ openingTime }}</span>
               </div>
             </div>
           </h1>
         </div>
         
         <div class="flex items-center gap-3">
+          <!-- Sync & Status Button -->
+          <button 
+            @click="syncData"
+            :disabled="!isOnline"
+            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700 disabled:opacity-50"
+          >
+            <div :class="['w-2 h-2 rounded-full', isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500']"></div>
+            <span>{{ isOnline ? 'Sync' : 'Offline' }}</span>
+          </button>
+
           <button 
             @click="showMoneyModal = true"
             class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700"
