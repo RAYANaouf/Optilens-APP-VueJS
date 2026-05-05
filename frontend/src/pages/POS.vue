@@ -12,15 +12,7 @@
             <FeatherIcon name="chevron-right" class="w-5 h-5 text-black group-hover:translate-x-0.5 transition-transform" stroke-width="3" />
           </button>
           <h1 class="text-5xl font-black text-black tracking-tight flex items-center gap-2">
-            <template v-if="currentMode === 'pos'">
-              <span>Optilens <span class="text-[#F7471C]">POS</span></span>
-            </template>
-            <template v-else>
-              <button @click="currentMode = 'pos'" class="flex items-center gap-2 text-2xl hover:opacity-70 transition-opacity">
-                <FeatherIcon name="arrow-left" class="w-6 h-6" stroke-width="3" />
-                <span>Payment <span class="text-[#F7471C]">Processing</span></span>
-              </button>
-            </template>
+            <span>Optilens <span class="text-[#F7471C]">POS</span></span>
             <div v-if="loginData.profile" class="flex items-center gap-1.5 ml-3 pl-4 border-l border-black/20">
               <FeatherIcon name="user" class="w-4 h-4 text-black" stroke-width="3" />
               <span class="text-xs font-black text-black tracking-tight uppercase">{{ loginData.profile }}</span>
@@ -30,42 +22,69 @@
               </div>
             </div>
           </h1>
-        </div>
-        
-        <div class="flex items-center gap-3">
-          <!-- Sync & Status Button -->
+          <!-- Sync & Status Button moved to left -->
           <button 
             @click="syncData"
             :disabled="!isOnline"
-            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700 disabled:opacity-50"
+            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700 disabled:opacity-50 ml-4"
           >
             <div :class="['w-2 h-2 rounded-full', isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500']"></div>
             <span>{{ isOnline ? 'Sync' : 'Offline' }}</span>
           </button>
+        </div>
+        
+        <div class="flex items-center gap-3 relative">
+          <!-- Transition Group for all Action Icons to handle sliding smoothly -->
+          <transition-group 
+            name="action-icons"
+            tag="div"
+            class="flex items-center gap-3"
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="opacity-0 scale-95 translate-x-2"
+            enter-to-class="opacity-100 scale-100 translate-x-0"
+            leave-active-class="transition duration-200 ease-in absolute"
+            leave-from-class="opacity-100 scale-100 translate-x-0"
+            leave-to-class="opacity-0 scale-95 -translate-x-2"
+            move-class="transition duration-300 ease-in-out"
+          >
+            <!-- Home button (only in payment mode) -->
+            <button 
+              key="home"
+              v-if="currentMode === 'payment'"
+              @click="currentMode = 'pos'"
+              class="p-2.5 bg-white shadow-sm hover:shadow-md border border-gray-100 rounded-xl transition-all active:scale-[0.98] group"
+            >
+              <FeatherIcon name="home" class="w-5 h-5 text-[#F7471C]" stroke-width="2.5" />
+            </button>
 
-          <button 
-            @click="showMoneyModal = true"
-            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700"
-          >
-            <FeatherIcon name="dollar-sign" class="w-4 h-4 text-[#39ADA8]" />
-            Money
-          </button>
+            <!-- Money button always visible -->
+            <button 
+              key="money"
+              @click="showMoneyModal = true"
+              class="p-2.5 bg-white shadow-sm hover:shadow-md border border-gray-100 rounded-xl transition-all active:scale-[0.98] group"
+            >
+              <FeatherIcon name="dollar-sign" class="w-5 h-5 text-[#39ADA8]" stroke-width="2.5" />
+            </button>
 
-          <button 
-            @click="checkout"
-            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-[#39ADA8] shadow-[#39ADA8]/10"
-          >
-            <FeatherIcon name="credit-card" class="w-4 h-4" />
-            Payment
-          </button>
-          
-          <button 
-            @click="showHistoryModal = true"
-            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700"
-          >
-            <FeatherIcon name="clock" class="w-4 h-4 text-blue-600" />
-            History
-          </button>
+            <!-- Payment button (only in pos mode) -->
+            <button 
+              key="payment"
+              v-if="currentMode !== 'payment'"
+              @click="checkout"
+              class="p-2.5 bg-white shadow-sm hover:shadow-md border border-gray-100 rounded-xl transition-all active:scale-[0.98] group shadow-[#39ADA8]/10"
+            >
+              <FeatherIcon name="credit-card" class="w-5 h-5 text-[#39ADA8]" stroke-width="2.5" />
+            </button>
+            
+            <!-- History button always visible -->
+            <button 
+              key="history"
+              @click="showHistoryModal = true"
+              class="p-2.5 bg-white shadow-sm hover:shadow-md border border-gray-100 rounded-xl transition-all active:scale-[0.98] group"
+            >
+              <FeatherIcon name="clock" class="w-5 h-5 text-blue-600" stroke-width="2.5" />
+            </button>
+          </transition-group>
         </div>
       </div>
 
@@ -115,10 +134,6 @@
           <!-- Invoices List -->
           <div class="h-12 shrink-0 flex items-center justify-between my-2">
             <h2 class="text-xl font-black text-gray-900">Invoices</h2>
-            <button @click="currentMode = 'pos'" class="text-xs font-bold text-[#39ADA8] flex items-center gap-1">
-              <FeatherIcon name="arrow-left" class="w-3.5 h-3.5" />
-              Back to Items
-            </button>
           </div>
           <div class="flex-1 overflow-y-auto">
             <!-- Invoice items content placeholder -->
@@ -195,15 +210,31 @@
       </template>
       <template v-else>
         <!-- Customer & Supplier List Card -->
-        <div class="flex flex-col h-full bg-white">
-          <div class="p-4 border-b shrink-0">
-            <div class="flex gap-2">
-              <button class="flex-1 py-2 rounded-xl text-xs font-bold bg-[#39ADA8] text-white">Customers</button>
-              <button class="flex-1 py-2 rounded-xl text-xs font-bold bg-gray-50 text-gray-500">Suppliers</button>
-            </div>
+        <div class="flex-1 flex flex-col bg-white overflow-hidden">
+          <div class="h-16 flex items-center px-4 gap-3 border-b shrink-0 bg-white">
+            <button 
+              @click="entityMode = 'customer'"
+              :class="[
+                'flex-1 h-10 flex items-center justify-center text-[11px] font-black uppercase tracking-[0.1em] rounded-xl transition-all active:scale-[0.98] border',
+                entityMode === 'customer' ? 'bg-[#39ADA8]/10 text-[#39ADA8] border-[#39ADA8]/10' : 'bg-gray-50/50 text-gray-400 border-gray-100 hover:bg-gray-100/80'
+              ]"
+            >
+              <FeatherIcon name="users" class="w-3.5 h-3.5 mr-2" />
+              Customers
+            </button>
+            <button 
+              @click="entityMode = 'supplier'"
+              :class="[
+                'flex-1 h-10 flex items-center justify-center text-[11px] font-black uppercase tracking-[0.1em] rounded-xl transition-all active:scale-[0.98] border',
+                entityMode === 'supplier' ? 'bg-[#39ADA8]/10 text-[#39ADA8] border-[#39ADA8]/10' : 'bg-gray-50/50 text-gray-400 border-gray-100 hover:bg-gray-100/80'
+              ]"
+            >
+              <FeatherIcon name="truck" class="w-3.5 h-3.5 mr-2" />
+              Suppliers
+            </button>
           </div>
           <div class="flex-1 overflow-y-auto p-4">
-            <div class="space-y-2">
+            <div v-if="entityMode === 'customer'" class="space-y-2">
               <div v-for="c in customers.slice(0, 15)" :key="c.name" class="p-3 bg-gray-50/50 rounded-xl flex items-center gap-3 border border-transparent hover:border-[#39ADA8]/20 transition-all cursor-pointer">
                 <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-gray-400 border border-gray-100 uppercase">{{ c.customer_name[0] }}</div>
                 <div class="flex-1 min-w-0">
@@ -212,9 +243,10 @@
                 </div>
               </div>
             </div>
-          </div>
-          <div class="p-4 border-t">
-            <button class="w-full py-3.5 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-black/10 hover:opacity-90 transition-all">Add New Entity</button>
+            <div v-else class="flex flex-col items-center justify-center h-full text-gray-400 opacity-50 py-12">
+              <FeatherIcon name="truck" class="w-12 h-12 mb-3" />
+              <p class="text-sm font-bold">Suppliers list coming soon</p>
+            </div>
           </div>
         </div>
       </template>
@@ -429,6 +461,7 @@ export default {
   data() {
     return {
       currentMode: 'pos', // 'pos' or 'payment'
+      entityMode: 'customer', // 'customer' or 'supplier'
       searchQuery: '',
       searchTimeout: null,
       activeOrderId: null,
@@ -927,8 +960,9 @@ export default {
       this.cart[index].standard_rate = newRate
     },
     checkout() {
+      console.log('Switching to payment mode...')
       this.currentMode = 'payment'
-      console.log('Checkout Mode Activated')
+      console.log('currentMode is now:', this.currentMode)
       // Deselect item when entering payment mode
       if (this.activeOrder) {
         this.activeOrder.selectedItemIndex = null
