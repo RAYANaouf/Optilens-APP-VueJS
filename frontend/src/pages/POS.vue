@@ -172,16 +172,16 @@
         </div>
         <div class="grid grid-cols-4 gap-1.5">
           <div class="col-span-3 grid grid-cols-3 gap-1.5">
-            <button v-for="n in [1,2,3,4,5,6,7,8,9]" :key="n" @click="handleKeyboardInput(n)" :disabled="selectedItemIndex === null" :class="['h-11 bg-white rounded-xl shadow-sm text-base font-bold border border-gray-100', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-100']">{{ n }}</button>
-            <button @click="handleKeyboardInput('.')" :disabled="selectedItemIndex === null" :class="['h-11 bg-white rounded-xl shadow-sm text-base font-bold border border-gray-100', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-100']">.</button>
-            <button @click="handleKeyboardInput(0)" :disabled="selectedItemIndex === null" :class="['h-11 bg-white rounded-xl shadow-sm text-base font-bold border border-gray-100', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-100']">0</button>
-            <button @click="handleKeyboardInput('backspace')" :disabled="selectedItemIndex === null" :class="['h-11 bg-white rounded-xl shadow-sm flex items-center justify-center border border-gray-100', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-100']"><FeatherIcon name="delete" class="w-5 h-5 text-gray-600" /></button>
+            <button v-for="n in [1,2,3,4,5,6,7,8,9]" :key="n" @click="handleKeyboardInput(n)" class="h-11 bg-white rounded-xl shadow-sm text-base font-bold transition-colors border border-gray-100 active:bg-gray-100">{{ n }}</button>
+            <button @click="handleKeyboardInput('.')" class="h-11 bg-white rounded-xl shadow-sm text-base font-bold border border-gray-100 active:bg-gray-100">.</button>
+            <button @click="handleKeyboardInput(0)" class="h-11 bg-white rounded-xl shadow-sm text-base font-bold border border-gray-100 active:bg-gray-100">0</button>
+            <button @click="handleKeyboardInput('backspace')" class="h-11 bg-white rounded-xl shadow-sm flex items-center justify-center border border-gray-100 active:bg-gray-100"><FeatherIcon name="delete" class="w-5 h-5 text-gray-600" /></button>
           </div>
           <div class="col-span-1 grid grid-rows-4 gap-1.5">
-            <button @click="focusedField = 'qty'" :disabled="selectedItemIndex === null" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'qty' && selectedItemIndex !== null) ? 'bg-[#39ADA8] text-white border-[#39ADA8] shadow-inner' : 'bg-white text-gray-500 border-gray-100']">Qty</button>
-            <button @click="focusedField = 'rate'" :disabled="selectedItemIndex === null" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'rate' && selectedItemIndex !== null) ? 'bg-[#39ADA8] text-white border-[#39ADA8] shadow-inner' : 'bg-white text-gray-500 border-gray-100']">Price</button>
-            <button @click="toggleSign" :disabled="selectedItemIndex === null" :class="['rounded-xl border border-gray-100 text-base font-black uppercase bg-gray-50 text-gray-700 active:bg-gray-100 transition-colors']">+/-</button>
-            <button @click="removeFromCart(selectedItemIndex)" :disabled="selectedItemIndex === null" :class="['rounded-xl text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100 active:bg-red-100 transition-colors']">Del</button>
+            <button @click="focusedField = 'qty'" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'qty') ? 'bg-[#39ADA8] text-white border-[#39ADA8] shadow-inner' : 'bg-white text-gray-500 border-gray-100']">Qty</button>
+            <button @click="focusedField = 'rate'" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'rate') ? 'bg-[#39ADA8] text-white border-[#39ADA8] shadow-inner' : 'bg-white text-gray-500 border-gray-100']">Price</button>
+            <button @click="toggleSign" class="rounded-xl border border-gray-100 text-base font-black uppercase bg-gray-50 text-gray-700 active:bg-gray-100 transition-colors">+/-</button>
+            <button @click="removeFromCart(selectedItemIndex)" class="rounded-xl text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100 active:bg-red-100 transition-colors">Del</button>
           </div>
         </div>
 
@@ -587,12 +587,17 @@ export default {
     if (this.orders.length > 0) {
       this.activeOrderId = this.orders[0].id
     }
+    // Connectivity listeners
+    window.addEventListener('online', this.updateOnlineStatus)
+    window.addEventListener('offline', this.updateOnlineStatus)
     // Close dropdowns when clicking outside
     document.addEventListener('click', this.handleClickOutside)
     // Add keyboard shortcuts
     document.addEventListener('keydown', this.handleKeyDown)
   },
   beforeUnmount() {
+    window.removeEventListener('online', this.updateOnlineStatus)
+    window.removeEventListener('offline', this.updateOnlineStatus)
     document.removeEventListener('click', this.handleClickOutside)
     document.removeEventListener('keydown', this.handleKeyDown)
   },
@@ -687,6 +692,23 @@ export default {
     setOpeningTime() {
       const now = new Date()
       this.openingTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    },
+    syncData() {
+      if (!this.isOnline) return
+      
+      // Reload master data
+      this.posDataResource.reload()
+      this.customersResource.reload()
+      this.priceListsResource.reload()
+      
+      // Reload items for current warehouse
+      const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+      if (profile) {
+        this.itemsResource.fetch({ warehouse: profile.warehouse })
+      }
+    },
+    updateOnlineStatus() {
+      this.isOnline = navigator.onLine
     },
     handleDenomKey(e, index) {
       if (e.key === 'ArrowDown') {

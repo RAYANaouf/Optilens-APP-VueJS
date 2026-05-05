@@ -39,9 +39,16 @@ def create_pos_session(company, pos_profile, denominations):
     import json
     if isinstance(denominations, str):
         denominations = json.loads(denominations)
-    
+
     # Calculate opening amount
     opening_amount = sum(float(d['value']) * int(d['qty']) for d in denominations)
+    
+    # Get mode of payment from POS Profile
+    pos_profile_doc = frappe.get_doc("POS Profile", pos_profile)
+    mode_of_payment = "Cash" # Default fallback
+    
+    if pos_profile_doc.payments:
+        mode_of_payment = pos_profile_doc.payments[0].mode_of_payment
     
     # Create POS Opening Entry
     doc = frappe.get_doc({
@@ -53,7 +60,7 @@ def create_pos_session(company, pos_profile, denominations):
         "period_start_date": frappe.utils.now(),
         "balance_details": [
             {
-                "mode_of_payment": "Cash", # Defaulting to Cash, should be from profile
+                "mode_of_payment": mode_of_payment,
                 "opening_amount": opening_amount
             }
         ]
