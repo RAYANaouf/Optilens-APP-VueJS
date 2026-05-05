@@ -2,6 +2,32 @@ import frappe
 import json
 
 @frappe.whitelist()
+def get_pos_data():
+    # Get all companies
+    companies = frappe.get_all("Company", fields=["name", "default_currency"])
+    
+    # Get all POS Profiles
+    profiles = frappe.get_all("POS Profile", 
+        fields=["name", "company", "warehouse", "selling_price_list"],
+        filters={"disabled": 0}
+    )
+
+    # Check for active POS Opening Entry for the user
+    opening_entry = frappe.get_all("POS Opening Entry", 
+        filters={
+            "status": "Open",
+            "docstatus": 1
+        },
+        fields=["name", "pos_profile", "company"]
+    )
+    
+    return {
+        "companies": companies,
+        "profiles": profiles,
+        "opening_entry": opening_entry[0] if opening_entry else None
+    }
+
+@frappe.whitelist()
 def get_item(priceLists=None, warehouse=None):
     # Convert priceLists from JSON string to Python list
     if isinstance(priceLists, str):

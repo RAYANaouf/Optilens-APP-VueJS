@@ -1,9 +1,9 @@
 <template>
   <div class="h-screen bg-gray-50 flex overflow-hidden relative">
     <!-- Left Section: Top Bar + Item Selector -->
-    <div class="flex-1 flex flex-col min-w-0  border-gray-100">
+    <div class="flex-1 flex flex-col min-w-0">
       <!-- Top Action Bar (Left Side Only) -->
-      <div class="h-14 shrink-0 flex items-center justify-between px-6 border-b border-gray-100 bg-white/50 backdrop-blur-md z-[60]">
+      <div class="h-14 shrink-0 flex items-center justify-between px-6  z-[60]">
         <div class="flex items-center gap-4">
           <button 
             @click="showSidebar = true"
@@ -22,6 +22,14 @@
             <FeatherIcon name="dollar-sign" class="w-4 h-4 text-green-600" />
             Money
           </button>
+
+          <button 
+            @click="checkout"
+            class="flex items-center gap-2 px-4 py-2 bg-green-600 rounded-xl shadow-sm hover:bg-green-700 transition-all active:scale-[0.98] text-sm font-bold text-white shadow-green-200"
+          >
+            <FeatherIcon name="credit-card" class="w-4 h-4" />
+            Payment
+          </button>
           
           <button 
             @click="showHistoryModal = true"
@@ -33,15 +41,15 @@
         </div>
       </div>
 
-      <!-- Item Selector Content -->
-      <div class="flex-1 flex flex-col px-6 pb-2 overflow-hidden">
+      <!-- Item Selector Content (Card Style) -->
+      <div class="flex-1 flex flex-col px-6 pb-2 overflow-hidden border border-gray-200 m-4 rounded-2xl bg-white shadow-sm">
         <!-- Search Bar -->
-        <div class="h-16 shrink-0 flex items-center">
+        <div class="h-12 shrink-0 flex items-center my-2">
           <div class="relative group w-full">
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <FeatherIcon name="search" class="w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+              <FeatherIcon name="search" class="w-4 h-4 text-gray-400 group-focus-within:text-green-500 transition-colors" />
             </div>
-            <input v-model="searchQuery" @input="onSearchInput" type="text" placeholder="Search items..." class="w-full pl-11 pr-10 py-3.5 bg-white border-none rounded-2xl shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-green-500 outline-none text-sm placeholder:text-gray-400 transition-all" />
+            <input v-model="searchQuery" @input="onSearchInput" type="text" placeholder="Search items..." class="w-full pl-11 pr-10 py-2 bg-gray-50/50 border-none rounded-2xl ring-1 ring-gray-100 focus:ring-2 focus:ring-green-500 outline-none text-sm placeholder:text-gray-400 transition-all" />
             <button v-if="searchQuery" @click="searchQuery = ''; onSearchInput()" class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 transition-colors"><FeatherIcon name="x" class="w-4 h-4" /></button>
           </div>
         </div>
@@ -77,7 +85,7 @@
     </div>
 
     <!-- Right Section: Orders Panel (Takes whole height as a card) -->
-    <div class="w-[400px] flex flex-col bg-white overflow-hidden shrink-0 border border-gray-100 h-[calc(100vh-2rem)] m-4 rounded-[2rem] shadow-2xl shadow-gray-200/50">
+    <div class="w-[400px] flex flex-col bg-white overflow-hidden shrink-0 border border-gray-200 h-[calc(100vh-2rem)] m-4 rounded-2xl shadow-2xl shadow-gray-200/50">
       <!-- Multi-Order Tabs (Top of Right Section) -->
       <div class="flex items-center gap-1 p-2 bg-gray-50 border-b overflow-x-auto no-scrollbar shrink-0">
         <button v-for="order in orders" :key="order.id" @click="activeOrderId = order.id; focusedField = 'qty'" :class="['px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 shrink-0 border', (activeOrderId === order.id || (!activeOrderId && orders[0].id === order.id)) ? 'bg-white text-green-600 border-green-200 shadow-sm' : 'text-gray-500 border-transparent hover:bg-white/50']">
@@ -126,7 +134,7 @@
             <span class="w-7"></span><span class="flex-1">Name</span><span class="shrink-0 w-14 text-center">Qty</span><span class="shrink-0 w-20 text-right pr-2">Price</span>
           </div>
           <div class="flex-1 overflow-y-auto px-4 py-2 space-y-1">
-            <div v-for="(item, index) in cart" :key="index" @click="activeOrder.selectedItemIndex = index" :class="['h-12 px-2 rounded-xl cursor-pointer border flex items-center gap-2 shrink-0 transition-all', selectedItemIndex === index ? 'bg-green-50 border-green-200 ring-1 ring-green-100 shadow-sm' : 'bg-white border-transparent hover:bg-gray-50']">
+            <div v-for="(item, index) in cart" :key="index" @click="activeOrder.selectedItemIndex = index" :class="['h-12 px-2 rounded-xl cursor-pointer border flex items-center gap-2 shrink-0 transition-all duration-200', selectedItemIndex === index ? 'bg-green-50 border-green-400 shadow-md ring-2 ring-green-100' : 'bg-white border-transparent hover:bg-gray-50']">
               <button @click.stop="removeFromCart(index)" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-400 hover:text-red-600 transition-colors"><FeatherIcon name="trash-2" class="w-3.5 h-3.5" /></button>
               <p class="flex-1 text-xs font-semibold text-gray-900 truncate">{{ item.item_name || item.name }}</p>
               <button @click.stop="activeOrder.selectedItemIndex = index; focusedField = 'qty'" :class="['shrink-0 w-14 h-8 flex items-center justify-center text-xs rounded-lg transition-all', (selectedItemIndex === index && focusedField === 'qty') ? 'text-green-600 font-bold ring-1 ring-green-200 bg-green-50' : 'text-gray-700 hover:bg-gray-100']">{{ item.qty }}</button>
@@ -136,25 +144,24 @@
         </div>
       </div>
 
-        <!-- Keyboard Area (Fixed at bottom) -->
-        <div class="bg-gray-100 p-1.5 border-t shrink-0">
-          <div class="flex items-center justify-between px-3 py-1.5 bg-white rounded-xl mb-1.5 border shadow-sm">
-            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Subtotal</span>
-            <span class="text-base font-black text-gray-900">{{ formatCurrency(cartTotal) }}</span>
+      <!-- Keyboard Area (Fixed at bottom) -->
+      <div class="bg-gray-100 p-1.5 border-t shrink-0">
+        <div class="flex items-center justify-between px-3 py-1.5 bg-white rounded-xl mb-1.5 border shadow-sm">
+          <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Subtotal</span>
+          <span class="text-base font-black text-gray-900">{{ formatCurrency(cartTotal) }}</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1">
+          <div class="col-span-3 grid grid-cols-3 gap-1">
+            <button v-for="n in [1,2,3,4,5,6,7,8,9]" :key="n" @click="handleKeyboardInput(n)" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm text-base font-bold transition-colors', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']">{{ n }}</button>
+            <button @click="handleKeyboardInput('.')" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm text-base font-bold', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']">.</button>
+            <button @click="handleKeyboardInput(0)" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm text-base font-bold', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']">0</button>
+            <button @click="handleKeyboardInput('backspace')" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm flex items-center justify-center', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']"><FeatherIcon name="delete" class="w-5 h-5 text-gray-600" /></button>
           </div>
-          <div class="grid grid-cols-4 gap-1">
-            <div class="col-span-3 grid grid-cols-3 gap-1">
-              <button v-for="n in [1,2,3,4,5,6,7,8,9]" :key="n" @click="handleKeyboardInput(n)" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm text-base font-bold transition-colors', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']">{{ n }}</button>
-              <button @click="handleKeyboardInput('.')" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm text-base font-bold', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']">.</button>
-              <button @click="handleKeyboardInput(0)" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm text-base font-bold', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']">0</button>
-              <button @click="handleKeyboardInput('backspace')" :disabled="selectedItemIndex === null" :class="['h-10 bg-white rounded-xl shadow-sm flex items-center justify-center', selectedItemIndex === null ? 'opacity-50' : 'active:bg-gray-200']"><FeatherIcon name="delete" class="w-5 h-5 text-gray-600" /></button>
-            </div>
-            <div class="col-span-1 grid grid-rows-4 gap-1">
-              <button @click="focusedField = 'qty'" :disabled="selectedItemIndex === null" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'qty' && selectedItemIndex !== null) ? 'bg-green-600 text-white border-green-700 shadow-inner' : 'bg-white text-gray-500']">Qty</button>
-              <button @click="focusedField = 'rate'" :disabled="selectedItemIndex === null" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'rate' && selectedItemIndex !== null) ? 'bg-green-600 text-white border-green-700 shadow-inner' : 'bg-white text-gray-500']">Price</button>
-              <button @click="toggleSign" :disabled="selectedItemIndex === null" :class="['rounded-xl border text-base font-black uppercase bg-gray-50 text-gray-700 active:bg-gray-100 transition-colors']">+/-</button>
-              <button @click="removeFromCart(selectedItemIndex)" :disabled="selectedItemIndex === null" :class="['rounded-xl text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100 active:bg-red-100 transition-colors']">Del</button>
-            </div>
+          <div class="col-span-1 grid grid-rows-4 gap-1">
+            <button @click="focusedField = 'qty'" :disabled="selectedItemIndex === null" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'qty' && selectedItemIndex !== null) ? 'bg-green-600 text-white border-green-700 shadow-inner' : 'bg-white text-gray-500']">Qty</button>
+            <button @click="focusedField = 'rate'" :disabled="selectedItemIndex === null" :class="['rounded-xl shadow-sm text-[10px] font-black uppercase transition-all border', (focusedField === 'rate' && selectedItemIndex !== null) ? 'bg-green-600 text-white border-green-700 shadow-inner' : 'bg-white text-gray-500']">Price</button>
+            <button @click="toggleSign" :disabled="selectedItemIndex === null" :class="['rounded-xl border text-base font-black uppercase bg-gray-50 text-gray-700 active:bg-gray-100 transition-colors']">+/-</button>
+            <button @click="removeFromCart(selectedItemIndex)" :disabled="selectedItemIndex === null" :class="['rounded-xl text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100 active:bg-red-100 transition-colors']">Del</button>
           </div>
         </div>
       </div>
@@ -200,6 +207,56 @@
         <div class="p-4 border-t border-gray-50"><button @click="closePOS" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 text-red-500 transition-all group"><div class="w-10 h-10 rounded-lg bg-red-50 group-hover:bg-red-100 flex items-center justify-center transition-colors"><FeatherIcon name="log-out" class="w-5 h-5" /></div><span class="font-bold">Exit POS</span></button></div>
       </div>
     </Transition>
+
+    <!-- Initial Profile Selection Popup -->
+    <div v-if="showLoginModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
+      <div class="bg-white p-6 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 border border-gray-100 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-green-400 to-green-600"></div>
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3 text-green-600">
+            <FeatherIcon name="unlock" class="w-8 h-8" />
+          </div>
+          <h2 class="text-xl font-black text-gray-900">Welcome to Optilens</h2>
+          <p class="text-xs text-gray-500 mt-1 font-medium">Please select your profile to continue</p>
+        </div>
+
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Company</label>
+            <select v-model="loginData.company" class="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl outline-none focus:border-green-500 transition-all font-bold text-sm text-gray-700 appearance-none cursor-pointer">
+              <option value="" disabled>Select Company</option>
+              <option v-for="c in companiesList" :key="c.name" :value="c.name">{{ c.name }}</option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">POS Profile</label>
+            <select v-model="loginData.profile" :disabled="!loginData.company" class="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl outline-none focus:border-green-500 transition-all font-bold text-sm text-gray-700 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+              <option value="" disabled>Select Profile</option>
+              <option v-for="p in filteredProfiles" :key="p.name" :value="p.name">{{ p.name }}</option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password / PIN</label>
+            <div class="relative">
+              <input v-model="loginData.password" type="password" placeholder="••••" class="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl outline-none focus:border-green-500 transition-all font-bold text-gray-700 placeholder:text-gray-300 text-center text-xl tracking-[0.8em]" />
+            </div>
+          </div>
+
+          <button 
+            @click="handleLogin" 
+            :disabled="!isLoginValid"
+            class="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-base shadow-lg shadow-green-100 hover:bg-green-700 hover:shadow-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none mt-2"
+          >
+            Open POS Session
+          </button>
+        </div>
+        
+        <p class="text-center text-[10px] font-bold text-gray-300 mt-6 uppercase tracking-tighter">Optilens Point of Sale v1.0</p>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -238,9 +295,30 @@ export default {
       showMoneyModal: false,
       showHistoryModal: false,
       showSidebar: false,
-      isInitializing: true,
+      showLoginModal: false, // Wait for master data sync first
+      loginData: {
+        company: '',
+        profile: '',
+        password: ''
+      },
+      companiesList: [],
+      availableProfiles: [],
       
       // Resources
+      posDataResource: createResource({
+        url: 'optilens_app.api.pos.get_pos_data',
+        auto: true,
+        onSuccess: (data) => {
+          this.companiesList = data.companies || []
+          this.availableProfiles = data.profiles || []
+          
+          if (data.opening_entry) {
+            // Pre-select based on active opening entry
+            this.loginData.company = data.opening_entry.company
+            this.loginData.profile = data.opening_entry.pos_profile
+          }
+        }
+      }),
       customersResource: createResource({
         url: 'frappe.client.get_list',
         params: {
@@ -293,11 +371,19 @@ export default {
   computed: {
     loadingSteps() {
       return [
+        { label: 'POS Context', completed: this.companiesList.length > 0 },
         { label: 'Price Lists', completed: this.priceLists.length > 0 },
         { label: 'Customers', completed: this.customers.length > 0 },
         { label: 'Suppliers', completed: this.suppliers.length > 0 },
         { label: 'Product Catalog', completed: this.items.length > 0 }
       ]
+    },
+    filteredProfiles() {
+      if (!this.loginData.company) return []
+      return this.availableProfiles.filter(p => p.company === this.loginData.company)
+    },
+    isLoginValid() {
+      return this.loginData.company && this.loginData.profile && this.loginData.password.length >= 4
     },
     progressPercentage() {
       const completed = this.loadingSteps.filter(s => s.completed).length
@@ -365,6 +451,14 @@ export default {
       return this.cart.reduce((sum, item) => sum + ((item.standard_rate || 0) * item.qty), 0)
     },
   },
+  watch: {
+    isInitializing(newVal) {
+      if (!newVal) {
+        // Data loading finished, show login modal
+        this.showLoginModal = true
+      }
+    }
+  },
   mounted() {
     if (this.orders.length > 0) {
       this.activeOrderId = this.orders[0].id
@@ -405,6 +499,19 @@ export default {
         } else if (key === '-') {
           this.toggleSign()
         }
+      }
+    },
+    handleLogin() {
+      const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+      if (profile) {
+        // Update active order with profile defaults
+        if (this.activeOrder) {
+          this.activeOrder.selectedPriceList = { name: profile.price_list }
+          this.activeOrder.priceListSearch = profile.price_list
+        }
+        this.showLoginModal = false
+        // Start loading items for the profile's warehouse
+        this.itemsResource.fetch({ warehouse: profile.warehouse })
       }
     },
     handleClickOutside(e) {
