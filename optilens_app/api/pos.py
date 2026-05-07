@@ -214,3 +214,46 @@ def get_supplier_invoices(supplier):
         order_by="posting_date desc"
     )
     return invoices
+
+@frappe.whitelist()
+def sync_offline_orders(orders):
+    import json
+    orders = json.loads(orders)
+    synced_count = 0
+
+    for order in orders:
+        try:
+            # Create POS Invoice
+            doc = frappe.new_doc("POS Invoice")
+            doc.customer = order.get("selectedCustomer", {}).get("name")
+            doc.pos_profile = order.get("pos_profile")
+            doc.company = order.get("company")
+            doc.is_pos = 1
+            doc.update_stock = 1
+            
+            # Add Items
+            for item in order.get("cart", []):
+                doc.append("items", {
+                    "item_code": item.get("name"),
+                    "qty": item.get("qty"),
+                    "rate": item.get("standard_rate"),
+                    "warehouse": item.get("warehouse") or frappe.db.get_value("POS Profile", doc.pos_profile, "warehouse")
+                })
+            
+            # Handle Payments
+            payment = order.get("payment", {})
+            if payment.get("method") == "Cash" and payment.get("amount") > 0:
+                doc.append("payments", {
+                    "mode_of_payment": "Cash",
+                    "amount": payment.get("amount")
+                })
+            
+            doc.insert()
+            doc.submit()
+            synced_count += 1
+            
+        except Exception:
+            frappe.log_error(title="POS Sync Error", message=frappe.get_traceback())
+            continue
+            
+    return {"synced_count": synced_count}
