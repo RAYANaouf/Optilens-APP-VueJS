@@ -593,7 +593,89 @@
         </div>
       </template>
     </Dialog>
-    
+
+    <!-- Cash Transaction Dialog (In/Out) -->
+    <Dialog 
+      v-model="showMoneyModal" 
+      :options="{
+        title: 'Cash Transaction',
+        size: 'sm'
+      }"
+      class="centered-dialog-title"
+    >
+      <template #body-content>
+        <div class="space-y-6 py-2">
+          <!-- Type Selection -->
+          <div class="grid grid-cols-2 gap-3">
+            <button 
+              @click="cashTransaction.type = 'In'"
+              :class="[
+                'py-3 rounded-2xl font-black text-sm uppercase tracking-widest transition-all border-2',
+                cashTransaction.type === 'In' 
+                  ? 'bg-green-500 border-green-500 text-white' 
+                  : 'bg-white border-gray-100 text-gray-400 hover:border-green-500/30'
+              ]"
+            >
+              Cash In
+            </button>
+            <button 
+              @click="cashTransaction.type = 'Out'"
+              :class="[
+                'py-3 rounded-2xl font-black text-sm uppercase tracking-widest transition-all border-2',
+                cashTransaction.type === 'Out' 
+                  ? 'bg-red-500 border-red-500 text-white' 
+                  : 'bg-white border-gray-100 text-gray-400 hover:border-red-500/30'
+              ]"
+            >
+              Cash Out
+            </button>
+          </div>
+
+          <!-- Amount -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Amount</label>
+            <div class="relative">
+              <input 
+                v-model="cashTransaction.amount"
+                type="number" 
+                class="w-full px-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#39ADA8] transition-all font-black text-xl text-gray-900"
+                placeholder="0.00"
+              />
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 font-black text-gray-400">DA</span>
+            </div>
+          </div>
+
+          <!-- Reason -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Reason / Description</label>
+            <textarea 
+              v-model="cashTransaction.reason"
+              rows="3"
+              class="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#39ADA8] transition-all font-bold text-sm text-gray-900 placeholder:text-gray-300"
+              placeholder="Enter reason..."
+            ></textarea>
+          </div>
+        </div>
+      </template>
+      <template #actions>
+        <div class="flex gap-3 w-full mt-4">
+          <button 
+            @click="showMoneyModal = false"
+            class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="handleCashTransaction"
+            :disabled="!cashTransaction.amount || !cashTransaction.reason"
+            class="flex-1 py-4 bg-[#39ADA8] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            Confirm
+          </button>
+        </div>
+      </template>
+    </Dialog>
+
     <!-- Modern Alert Dialog -->
     <Dialog 
       v-model="showAlert" 
@@ -777,6 +859,11 @@ export default {
       showPriceListDropdown: false,
       focusedField: 'qty', // 'qty' or 'rate'
       showMoneyModal: false,
+      cashTransaction: {
+        type: 'In', // 'In' or 'Out'
+        amount: 0,
+        reason: ''
+      },
       showHistoryModal: false,
       showSidebar: false,
       showLoginModal: false, // Wait for master data sync first
@@ -895,6 +982,9 @@ export default {
         onSuccess: (data) => {
           this.invoices = data
         }
+      }),
+      cashTransactionsResource: createResource({
+        url: 'optilens_app.api.pos.create_cash_transaction'
       })
     }
   },
@@ -1054,6 +1144,34 @@ export default {
     document.removeEventListener('keydown', this.handleKeyDown)
   },
   methods: {
+    async handleCashTransaction() {
+      if (!this.cashTransaction.amount || !this.cashTransaction.reason) return
+
+      try {
+        await this.cashTransactionsResource.submit({
+          type: this.cashTransaction.type,
+          amount: this.cashTransaction.amount,
+          reason: this.cashTransaction.reason,
+          company: this.loginData.company,
+          pos_profile: this.loginData.profile
+        })
+
+        this.alertMessage = `Successfully recorded Cash ${this.cashTransaction.type}`
+        this.showAlert = true
+        this.showMoneyModal = false
+        
+        // Reset form
+        this.cashTransaction = {
+          type: 'In',
+          amount: 0,
+          reason: ''
+        }
+      } catch (err) {
+        console.error('Failed to record cash transaction:', err)
+        this.alertMessage = 'Error recording cash transaction. Please try again.'
+        this.showAlert = true
+      }
+    },
     async updateToSyncCount() {
       if (!pos_invoice_DB.getToSync) return
       try {
@@ -1501,10 +1619,11 @@ export default {
       }
 
       if (this.cart.length === 0) {
-        // If cart is empty, switch to payment/debt mode
-        this.currentMode = 'payment'
+        this.alertMessage = 'Your cart is empty'
+        this.showAlert = true
         return
       }
+
       this.paymentData.amount = this.cartTotal
       this.showPaymentPopup = true
       

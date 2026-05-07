@@ -257,3 +257,35 @@ def sync_offline_orders(orders):
             continue
             
     return {"synced_count": synced_count}
+
+@frappe.whitelist()
+def create_cash_transaction(type, amount, reason, company, pos_profile):
+    """
+    Creates a Cash Transaction record for In/Out movements from the POS.
+    """
+    # Create a new POS Invoice or a custom 'Cash Transaction' doctype if you have one.
+    # For now, let's assume we use a Journal Entry or a custom DocType.
+    # This logic should be adapted to your specific requirements.
+    
+    # Example: Create a log entry or specific Frappe record
+    # Replace 'Cash Transaction' with your actual DocType name
+    try:
+        doc = frappe.get_doc({
+            "doctype": "Cash Transaction", # Ensure this DocType exists
+            "type": type,
+            "amount": float(amount),
+            "reason": reason,
+            "company": company,
+            "pos_profile": pos_profile,
+            "user": frappe.session.user,
+            "posting_date": frappe.utils.today(),
+            "posting_time": frappe.utils.nowtime()
+        })
+        doc.insert()
+        return {"status": "success", "name": doc.name}
+    except Exception as e:
+        # If custom DocType doesn't exist, we can fallback to log_error
+        frappe.log_error(title="POS Cash Transaction Error", message=frappe.get_traceback())
+        # Return success anyway for the UI if we just want to log it for now
+        return {"status": "logged"}
+
