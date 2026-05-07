@@ -1049,10 +1049,25 @@ export default {
     },
     async saveOrdersToLocal(orders) {
       try {
-        // Clear old orders and save current ones to keep them in sync
-        await pos_invoice_DB.clear()
+        const existing = await pos_invoice_DB.getAll()
+
+        // delete only draft orders
+        for (const old of existing) {
+          if (!old.to_sync) {
+            await pos_invoice_DB.delete(old.id)
+          }
+        }
+
+        // save current drafts
         for (const order of orders) {
-          await pos_invoice_DB.save(order)
+          console.log("the local orders ==> " , order)
+          if(!order.to_sync){
+            await pos_invoice_DB.save({
+              ...order,
+              to_sync: 0
+            })
+          }
+          
         }
       } catch (err) {
         console.error('Failed to save orders to local DB:', err)
@@ -1429,19 +1444,31 @@ export default {
       const invoiceToSave = {
         ...JSON.parse(JSON.stringify(this.activeOrder)),
         payment: { ...this.paymentData },
-        status: 'to_sync',
+        to_sync: 1,
         completed_at: new Date().toISOString()
       }
 
       try {
         await pos_invoice_DB.save(invoiceToSave)
+        let myorders = await pos_invoice_DB.getAll()
+        console.log("=====> " , myorders)
         await this.updateToSyncCount()
         
         if (this.activeOrder) {
+          this.activeOrder.id = Date.now() // NEW ID
+
           this.activeOrder.cart = []
           this.activeOrder.selectedCustomer = null
+          this.activeOrder.selectedSupplier = null
           this.activeOrder.customerSearch = ''
+          this.activeOrder.selectedItemIndex = null
+
+          // important
+          this.activeOrder.to_sync = 0
         }
+
+        let myorders2 = await pos_invoice_DB.getAll()
+        console.log("=====> " , myorders2)
         this.showPaymentPopup = false
       } catch (err) {
         console.error('Failed to complete order locally:', err)

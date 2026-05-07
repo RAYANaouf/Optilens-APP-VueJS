@@ -1,5 +1,5 @@
-const DB_NAME = 'optilens_pos_db';
-const DB_VERSION = 7; // Bumping to restore index and logic
+const DB_NAME = 'optilens_pos_db2';
+const DB_VERSION = 12; // Bump version for robust boolean indexing
 
 const openDB = () => {
   return new Promise((resolve, reject) => {
@@ -7,6 +7,7 @@ const openDB = () => {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      
       let orderStore;
       if (!db.objectStoreNames.contains('POS Invoice')) {
         orderStore = db.createObjectStore('POS Invoice', { keyPath: 'id' });
@@ -14,9 +15,11 @@ const openDB = () => {
         orderStore = event.target.transaction.objectStore('POS Invoice');
       }
       
-      if (!orderStore.indexNames.contains('to_sync')) {
-        orderStore.createIndex('to_sync', 'to_sync');
+      // Recreate index if it exists to be safe
+      if (orderStore.indexNames.contains('to_sync')) {
+        orderStore.deleteIndex('to_sync');
       }
+      orderStore.createIndex('to_sync', 'to_sync');
 
       if (!db.objectStoreNames.contains('master_data')) {
         db.createObjectStore('master_data');
@@ -41,42 +44,29 @@ export const pos_invoice_DB = {
   },
 
   async save(pos_invoice) {
-
-    console.log("im here")
+    console.log('📝 Attempting to save POS Invoice:', pos_invoice);
     const db = await openDB();
-
     return new Promise((resolve, reject) => {
-    const transaction = db.transaction('POS Invoice', 'readwrite');
-
-    const store = transaction.objectStore('POS Invoice');
-
-    const data = JSON.parse(JSON.stringify(pos_invoice));
-
-    const request = store.put(data);
-
-    request.onsuccess = () => {
-      console.log('✅ Invoice saved successfully:', data);
-
-      resolve(request.result);
-    };
-
-    request.onerror = () => {
-      console.error('❌ Error saving invoice:', request.error);
-
-      reject(request.error);
-    };
-
-    transaction.onerror = () => {
-      console.error('❌ Transaction failed:', transaction.error);
-
-      reject(transaction.error);
-    };
-
-    transaction.oncomplete = () => {
-      console.log('📦 Transaction completed');
-    };
-  });
-},
+      const transaction = db.transaction('POS Invoice', 'readwrite');
+      const store = transaction.objectStore('POS Invoice');
+      
+      // Ensure to_sync is stored as a number (1 for true) for better indexing compatibility
+      const data = JSON.parse(JSON.stringify(pos_invoice));
+      data.to_sync = data.to_sync ? 1 : 0;
+      
+      console.log('💾 Saving processed data to IndexedDB:', data);
+      
+      const request = store.put(data);
+      request.onsuccess = () => {
+        console.log('✅ Invoice saved successfully to IndexedDB');
+        resolve(request.result);
+      };
+      request.onerror = () => {
+        console.error('❌ Error saving invoice to IndexedDB:', request.error);
+        reject(request.error);
+      };
+    });
+  },
 
   async delete(id) {
     const db = await openDB();
@@ -106,7 +96,9 @@ export const pos_invoice_DB = {
       const transaction = db.transaction('POS Invoice', 'readonly');
       const store = transaction.objectStore('POS Invoice');
       const index = store.index('to_sync');
-      const request = index.getAll(true);
+      
+      // Query for 1 (which represents true)
+      const request = index.getAll(1);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
