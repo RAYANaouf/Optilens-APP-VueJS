@@ -1452,7 +1452,11 @@ export default {
       this.cart[index].standard_rate = newRate
     },
     checkout() {
-      if (this.cart.length === 0) return
+      if (this.cart.length === 0) {
+        // If cart is empty, switch to payment/debt mode
+        this.currentMode = 'payment'
+        return
+      }
       this.paymentData.amount = this.cartTotal
       this.showPaymentPopup = true
       
