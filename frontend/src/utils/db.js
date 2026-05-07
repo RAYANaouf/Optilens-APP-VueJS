@@ -1,4 +1,4 @@
-const DB_NAME = 'optilens_pos_db2';
+const DB_NAME = 'optilens_pos_db3';
 const DB_VERSION = 12; // Bump version for robust boolean indexing
 
 const openDB = () => {

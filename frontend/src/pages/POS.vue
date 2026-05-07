@@ -26,10 +26,13 @@
           <button 
             @click="syncData"
             :disabled="!isOnline"
-            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700 disabled:opacity-50 ml-4"
+            class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 transition-all active:scale-[0.98] text-sm font-bold text-gray-700 disabled:opacity-50 ml-4 relative"
           >
             <div :class="['w-2 h-2 rounded-full', isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500']"></div>
             <span>{{ isOnline ? 'Sync' : 'Offline' }}</span>
+            <span v-if="toSyncCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+              {{ toSyncCount }}
+            </span>
           </button>
         </div>
         
@@ -1014,6 +1017,7 @@ export default {
     
     // Load orders from local database
     this.loadLocalOrders()
+    this.updateToSyncCount()
   },
   beforeUnmount() {
     window.removeEventListener('online', this.updateOnlineStatus)
@@ -1025,18 +1029,22 @@ export default {
     async updateToSyncCount() {
       if (!pos_invoice_DB.getToSync) return
       try {
-        const orders = await pos_invoice_DB.getToSync()
-        this.toSyncCount = orders.length
+        const toSyncOrders = await pos_invoice_DB.getToSync()
+        this.toSyncCount = toSyncOrders.length
+        console.log('🔄 Sync count updated:', this.toSyncCount)
       } catch (err) {
         console.error('Failed to update sync count:', err)
       }
     },
     async loadLocalOrders() {
       try {
-        const localOrders = await pos_invoice_DB.getAll()
-        if (localOrders && localOrders.length > 0) {
-          this.orders = localOrders
-          this.activeOrderId = localOrders[0].id
+        const allLocal = await pos_invoice_DB.getAll()
+        // Only load drafts into the orders array
+        const localDrafts = allLocal.filter(o => !o.to_sync)
+        
+        if (localDrafts && localDrafts.length > 0) {
+          this.orders = localDrafts
+          this.activeOrderId = localDrafts[0].id
         } else {
           // Initialize with a default order if none found
           if (this.orders.length === 0) {
@@ -1179,18 +1187,42 @@ export default {
       const now = new Date()
       this.openingTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     },
-    syncData() {
+    async syncData() {
       if (!this.isOnline) return
       
-      // Reload master data
-      this.posDataResource.reload()
-      this.customersResource.reload()
-      this.priceListsResource.reload()
-      
-      // Reload items for current warehouse
-      const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
-      if (profile) {
-        this.itemsResource.fetch({ warehouse: profile.warehouse })
+      try {
+        // 1. Fetch invoices marked as 'to_sync'
+        const invoicesToSync = await pos_invoice_DB.getToSync()
+        
+        if (invoicesToSync.length > 0) {
+          console.log(`Syncing ${invoicesToSync.length} invoices...`)
+          
+          // 2. Push to server
+          await this.syncOrdersResource.submit({
+            orders: JSON.stringify(invoicesToSync)
+          })
+
+          // 3. Mark as synced or delete from local DB
+          for (const invoice of invoicesToSync) {
+            await pos_invoice_DB.delete(invoice.id)
+          }
+          
+          await this.updateToSyncCount()
+          alert(`Successfully synced ${invoicesToSync.length} invoices!`)
+        }
+
+        // 4. Reload master data
+        this.posDataResource.reload()
+        this.customersResource.reload()
+        this.priceListsResource.reload()
+        
+        const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+        if (profile) {
+          this.itemsResource.fetch({ warehouse: profile.warehouse })
+        }
+      } catch (err) {
+        console.error('Sync failed:', err)
+        alert('Failed to sync orders. Please check your connection.')
       }
     },
     updateOnlineStatus() {
@@ -1319,6 +1351,8 @@ export default {
         if (this.activeOrderId === id) {
           this.activeOrderId = this.orders[Math.max(0, index - 1)].id
         }
+        // Save state after closing
+        this.saveOrdersToLocal(this.orders)
       }
     },
     selectCustomer(customer) {
@@ -1468,7 +1502,7 @@ export default {
         }
 
         let myorders2 = await pos_invoice_DB.getAll()
-        console.log("=====> " , myorders2)
+        console.log(">>>=====> " , myorders2)
         this.showPaymentPopup = false
       } catch (err) {
         console.error('Failed to complete order locally:', err)
