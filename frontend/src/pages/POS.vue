@@ -3,7 +3,7 @@
     <!-- Left Section: Top Bar + Item Selector -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Top Action Bar (Left Side Only) -->
-      <div class="h-14 shrink-0 flex items-center justify-between px-6 z-[60] my-4">
+      <div class="h-14 shrink-0 flex items-center justify-between px-6 my-4">
         <div class="flex items-center gap-4">
           <button 
             @click="showSidebar = true"
@@ -36,7 +36,7 @@
           </button>
         </div>
         
-        <div class="flex items-center gap-3 relative">
+        <div class="flex items-center gap-3">
           <!-- Transition Group for all Action Icons to handle sliding smoothly -->
           <transition-group 
             name="action-icons"
