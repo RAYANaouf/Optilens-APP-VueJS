@@ -508,6 +508,89 @@
       </div>
     </Transition>
 
+    <!-- Payment Dialog -->
+    <Dialog 
+      v-model="showPaymentPopup" 
+      :options="{
+        title: 'Payment Details',
+        size: 'sm'
+      }"
+      class="centered-dialog-title"
+    >
+      <template #body-content>
+        <div class="space-y-6 py-2">
+          <!-- Total Summary -->
+          <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center">
+            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Amount Due</span>
+            <span class="text-3xl font-black text-gray-900">{{ formatCurrency(cartTotal) }}</span>
+          </div>
+
+          <!-- Amount Input -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Amount</label>
+            <div class="relative">
+              <input 
+                v-model="paymentData.amount"
+                type="number" 
+                class="w-full px-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl outline-none focus:border-[#39ADA8] transition-all font-black text-xl text-gray-900"
+                placeholder="0.00"
+              />
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 font-black text-gray-400">DA</span>
+            </div>
+          </div>
+
+          <!-- Remaining Balance (Read-only) -->
+          <div class="grid grid-cols-1 gap-2">
+            <div class="px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                {{ (paymentData.amount || 0) >= cartTotal ? 'Change' : 'Outstanding' }}
+              </span>
+              <span :class="['text-sm font-black', (paymentData.amount || 0) >= cartTotal ? 'text-orange-500' : 'text-red-500']">
+                {{ formatCurrency(Math.abs(cartTotal - (paymentData.amount || 0))) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Payment Method Selection -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Method</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button 
+                v-for="method in ['Cash', 'Later']" 
+                :key="method"
+                @click="setPaymentMethod(method)"
+                :class="[
+                  'py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all border-2',
+                  paymentData.method === method 
+                    ? 'bg-[#39ADA8] border-[#39ADA8] text-white' 
+                    : 'bg-white border-gray-100 text-gray-400 hover:border-[#39ADA8]/30'
+                ]"
+              >
+                <FeatherIcon :name="method === 'Cash' ? 'dollar-sign' : 'clock'" class="w-4 h-4 mx-auto mb-1" />
+                {{ method }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template #actions>
+        <div class="flex gap-3 w-full mt-4">
+          <button 
+            @click="showPaymentPopup = false"
+            class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="confirmOrderPayment"
+            class="flex-1 py-4 bg-[#39ADA8] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98]"
+          >
+            Confirm Pay
+          </button>
+        </div>
+      </template>
+    </Dialog>
+
     <!-- Initial Profile Selection Popup -->
     <div v-if="showLoginModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
       <div class="bg-white p-6 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 border border-gray-100 relative overflow-hidden">
@@ -623,13 +706,15 @@
 </template>
 
 <script>
-import { Badge, FeatherIcon, createResource } from 'frappe-ui'
+import { Badge, FeatherIcon, createResource, Dialog } from 'frappe-ui'
+import { ordersDB } from '../utils/db'
 
 export default {
   name: 'POS',
   components: {
     Badge,
     FeatherIcon,
+    Dialog,
   },
   data() {
     return {
@@ -666,6 +751,11 @@ export default {
       showHistoryModal: false,
       showSidebar: false,
       showLoginModal: false, // Wait for master data sync first
+      showPaymentPopup: false,
+      paymentData: {
+        amount: 0,
+        method: 'Cash'
+      },
       loginData: {
         company: '',
         profile: '',
@@ -896,12 +986,23 @@ export default {
         // Data loading finished, show login modal
         this.showLoginModal = true
       }
+    },
+    orders: {
+      handler(newOrders) {
+        this.saveOrdersToLocal(newOrders)
+      },
+      deep: true
+    },
+    'paymentData.amount'(newAmount) {
+      const val = parseFloat(newAmount) || 0
+      if (val === 0) {
+        this.paymentData.method = 'Later'
+      } else if (val > 0 && this.paymentData.method === 'Later') {
+        this.paymentData.method = 'Cash'
+      }
     }
   },
   mounted() {
-    if (this.orders.length > 0) {
-      this.activeOrderId = this.orders[0].id
-    }
     // Connectivity listeners
     window.addEventListener('online', this.updateOnlineStatus)
     window.addEventListener('offline', this.updateOnlineStatus)
@@ -909,6 +1010,9 @@ export default {
     document.addEventListener('click', this.handleClickOutside)
     // Add keyboard shortcuts
     document.addEventListener('keydown', this.handleKeyDown)
+    
+    // Load orders from local database
+    this.loadLocalOrders()
   },
   beforeUnmount() {
     window.removeEventListener('online', this.updateOnlineStatus)
@@ -917,6 +1021,33 @@ export default {
     document.removeEventListener('keydown', this.handleKeyDown)
   },
   methods: {
+    async loadLocalOrders() {
+      try {
+        const localOrders = await ordersDB.getAll()
+        if (localOrders && localOrders.length > 0) {
+          this.orders = localOrders
+          this.activeOrderId = localOrders[0].id
+        } else {
+          // Initialize with a default order if none found
+          if (this.orders.length === 0) {
+            this.addNewOrder()
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load local orders:', err)
+      }
+    },
+    async saveOrdersToLocal(orders) {
+      try {
+        // Clear old orders and save current ones to keep them in sync
+        await ordersDB.clear()
+        for (const order of orders) {
+          await ordersDB.save(order)
+        }
+      } catch (err) {
+        console.error('Failed to save orders to local DB:', err)
+      }
+    },
     getCookie(name) {
       const value = `; ${document.cookie}`
       const parts = value.split(`; ${name}=`)
@@ -1262,13 +1393,40 @@ export default {
       this.cart[index].standard_rate = newRate
     },
     checkout() {
-      console.log('Switching to payment mode...')
-      this.currentMode = 'payment'
-      console.log('currentMode is now:', this.currentMode)
+      if (this.cart.length === 0) return
+      this.paymentData.amount = this.cartTotal
+      this.showPaymentPopup = true
+      
       // Deselect item when entering payment mode
       if (this.activeOrder) {
         this.activeOrder.selectedItemIndex = null
       }
+    },
+    setPaymentMethod(method) {
+      this.paymentData.method = method
+      if (method === 'Later') {
+        this.paymentData.amount = 0
+      } else if (method === 'Cash') {
+        this.paymentData.amount = this.cartTotal
+      }
+    },
+    confirmOrderPayment() {
+      if (this.paymentData.method === 'Cash' && (!this.paymentData.amount || this.paymentData.amount <= 0)) {
+        alert('Please enter a valid payment amount for Cash')
+        return
+      }
+      
+      console.log('Finalizing order with payment:', this.paymentData)
+      // TODO: Implement actual order creation logic in Frappe
+      alert(`Order completed! Total: ${this.formatCurrency(this.paymentData.amount)} via ${this.paymentData.method}`)
+      
+      // Reset cart and close popup
+      if (this.activeOrder) {
+        this.activeOrder.cart = []
+        this.activeOrder.selectedCustomer = null
+        this.activeOrder.customerSearch = ''
+      }
+      this.showPaymentPopup = false
     },
     paySingleInvoice(invoice) {
       // Set payment amount to this specific invoice's outstanding
@@ -1321,6 +1479,13 @@ export default {
 </script>
 
 <style scoped>
+:deep(.centered-dialog-title header) {
+  text-align: center;
+  justify-content: center;
+}
+:deep(.centered-dialog-title header h2) {
+  width: 100%;
+}
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
