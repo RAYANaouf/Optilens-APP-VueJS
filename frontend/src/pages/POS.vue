@@ -73,7 +73,7 @@
             <button 
               key="payment"
               v-if="currentMode !== 'payment'"
-              @click="checkout"
+              @click="currentMode = 'payment'"
               class="p-2.5 bg-white shadow-sm hover:shadow-md border border-gray-100 rounded-xl transition-all active:scale-[0.98] group shadow-[#39ADA8]/10"
             >
               <FeatherIcon name="credit-card" class="w-5 h-5 text-[#39ADA8]" stroke-width="2.5" />
@@ -593,6 +593,32 @@
         </div>
       </template>
     </Dialog>
+    
+    <!-- Modern Alert Dialog -->
+    <Dialog 
+      v-model="showAlert" 
+      :options="{
+        title: 'Notification',
+        size: 'sm'
+      }"
+      class="centered-dialog-title"
+    >
+      <template #body-content>
+        <div class="py-4 text-center">
+          <p class="text-sm font-bold text-gray-700">{{ alertMessage }}</p>
+        </div>
+      </template>
+      <template #actions>
+        <div class="w-full flex justify-center">
+          <button 
+            @click="showAlert = false"
+            class="px-8 py-2.5 bg-[#39ADA8] text-white rounded-xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98]"
+          >
+            OK
+          </button>
+        </div>
+      </template>
+    </Dialog>
 
     <!-- Initial Profile Selection Popup -->
     <div v-if="showLoginModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
@@ -755,6 +781,8 @@ export default {
       showSidebar: false,
       showLoginModal: false, // Wait for master data sync first
       showPaymentPopup: false,
+      showAlert: false,
+      alertMessage: '',
       paymentData: {
         amount: 0,
         method: 'Cash'
@@ -1167,7 +1195,8 @@ export default {
         this.showDenominations = false
         this.setOpeningTime()
       }).catch((err) => {
-        this.loginError = 'Failed to create new POS session.'
+        this.alertMessage = 'Failed to create new POS session.'
+        this.showAlert = true
         console.error(err)
       })
     },
@@ -1208,7 +1237,8 @@ export default {
           }
           
           await this.updateToSyncCount()
-          alert(`Successfully synced ${invoicesToSync.length} invoices!`)
+          this.alertMessage = `Successfully synced ${invoicesToSync.length} invoices!`
+          this.showAlert = true
         }
 
         // 4. Reload master data
@@ -1222,7 +1252,8 @@ export default {
         }
       } catch (err) {
         console.error('Sync failed:', err)
-        alert('Failed to sync orders. Please check your connection.')
+        this.alertMessage = 'Failed to sync orders. Please check your connection.'
+        this.showAlert = true
       }
     },
     updateOnlineStatus() {
@@ -1248,9 +1279,20 @@ export default {
       }
     },
     addNewOrder() {
+      // Find the highest order number to ensure unique sequential naming
+      let nextNum = 1
+      if (this.orders.length > 0) {
+        const nums = this.orders
+          .map(o => {
+            const match = o.name.match(/Order (\d+)/)
+            return match ? parseInt(match[1]) : 0
+          })
+        nextNum = Math.max(...nums, 0) + 1
+      }
+
       const newOrder = {
         id: Date.now(),
-        name: `Order ${this.orders.length + 1}`,
+        name: `Order ${nextNum}`,
         cart: [],
         selectedCustomer: null,
         customerSearch: '',
@@ -1452,6 +1494,12 @@ export default {
       this.cart[index].standard_rate = newRate
     },
     checkout() {
+      if (!this.activeOrder?.selectedCustomer) {
+        this.alertMessage = 'Please select a customer before completing the payment'
+        this.showAlert = true
+        return
+      }
+
       if (this.cart.length === 0) {
         // If cart is empty, switch to payment/debt mode
         this.currentMode = 'payment'
@@ -1475,7 +1523,8 @@ export default {
     },
     async confirmOrderPayment() {
       if (this.paymentData.method === 'Cash' && (!this.paymentData.amount || this.paymentData.amount <= 0)) {
-        alert('Please enter a valid payment amount for Cash')
+        this.alertMessage = 'Please enter a valid payment amount for Cash'
+        this.showAlert = true
         return
       }
       
@@ -1493,7 +1542,9 @@ export default {
         await this.updateToSyncCount()
         
         if (this.activeOrder) {
-          this.activeOrder.id = Date.now() // NEW ID
+          const nextId = Date.now()
+          this.activeOrder.id = nextId
+          this.activeOrderId = nextId // Explicitly select the reset order
 
           this.activeOrder.cart = []
           this.activeOrder.selectedCustomer = null
@@ -1510,7 +1561,8 @@ export default {
         this.showPaymentPopup = false
       } catch (err) {
         console.error('Failed to complete order locally:', err)
-        alert('Error saving order locally.')
+        this.alertMessage = 'Error saving order locally.'
+        this.showAlert = true
       }
     },
     paySingleInvoice(invoice) {
