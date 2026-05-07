@@ -707,7 +707,7 @@
 
 <script>
 import { Badge, FeatherIcon, createResource, Dialog } from 'frappe-ui'
-import { ordersDB } from '../utils/db'
+import { pos_invoice_DB } from '../utils/db'
 
 export default {
   name: 'POS',
@@ -764,6 +764,7 @@ export default {
       loginError: '',
       openingTime: null,
       isOnline: navigator.onLine,
+      toSyncCount: 0,
       showDenominations: false,
       denominations: [
         { value: 5, qty: 0 },
@@ -1021,9 +1022,18 @@ export default {
     document.removeEventListener('keydown', this.handleKeyDown)
   },
   methods: {
+    async updateToSyncCount() {
+      if (!pos_invoice_DB.getToSync) return
+      try {
+        const orders = await pos_invoice_DB.getToSync()
+        this.toSyncCount = orders.length
+      } catch (err) {
+        console.error('Failed to update sync count:', err)
+      }
+    },
     async loadLocalOrders() {
       try {
-        const localOrders = await ordersDB.getAll()
+        const localOrders = await pos_invoice_DB.getAll()
         if (localOrders && localOrders.length > 0) {
           this.orders = localOrders
           this.activeOrderId = localOrders[0].id
@@ -1040,9 +1050,9 @@ export default {
     async saveOrdersToLocal(orders) {
       try {
         // Clear old orders and save current ones to keep them in sync
-        await ordersDB.clear()
+        await pos_invoice_DB.clear()
         for (const order of orders) {
-          await ordersDB.save(order)
+          await pos_invoice_DB.save(order)
         }
       } catch (err) {
         console.error('Failed to save orders to local DB:', err)
@@ -1410,23 +1420,33 @@ export default {
         this.paymentData.amount = this.cartTotal
       }
     },
-    confirmOrderPayment() {
+    async confirmOrderPayment() {
       if (this.paymentData.method === 'Cash' && (!this.paymentData.amount || this.paymentData.amount <= 0)) {
         alert('Please enter a valid payment amount for Cash')
         return
       }
       
-      console.log('Finalizing order with payment:', this.paymentData)
-      // TODO: Implement actual order creation logic in Frappe
-      alert(`Order completed! Total: ${this.formatCurrency(this.paymentData.amount)} via ${this.paymentData.method}`)
-      
-      // Reset cart and close popup
-      if (this.activeOrder) {
-        this.activeOrder.cart = []
-        this.activeOrder.selectedCustomer = null
-        this.activeOrder.customerSearch = ''
+      const invoiceToSave = {
+        ...JSON.parse(JSON.stringify(this.activeOrder)),
+        payment: { ...this.paymentData },
+        status: 'to_sync',
+        completed_at: new Date().toISOString()
       }
-      this.showPaymentPopup = false
+
+      try {
+        await pos_invoice_DB.save(invoiceToSave)
+        await this.updateToSyncCount()
+        
+        if (this.activeOrder) {
+          this.activeOrder.cart = []
+          this.activeOrder.selectedCustomer = null
+          this.activeOrder.customerSearch = ''
+        }
+        this.showPaymentPopup = false
+      } catch (err) {
+        console.error('Failed to complete order locally:', err)
+        alert('Error saving order locally.')
+      }
     },
     paySingleInvoice(invoice) {
       // Set payment amount to this specific invoice's outstanding
