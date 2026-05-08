@@ -495,6 +495,38 @@
       </div>
     </div>
 
+    <!-- Master Data Loading Popup (Phase 2) -->
+    <div v-if="showDataLoadingModal" class="fixed inset-0 z-[300] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
+      <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 text-center border border-gray-100 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#39ADA8]"></div>
+        
+        <div class="mb-6">
+          <div class="w-16 h-16 bg-[#39ADA8]/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#39ADA8]">
+            <div class="w-8 h-8 border-4 border-[#39ADA8]/20 border-t-[#39ADA8] rounded-full animate-spin"></div>
+          </div>
+          <h2 class="text-xl font-black text-gray-900">Synchronizing Data</h2>
+          <p class="text-xs text-gray-500 mt-2 font-medium">Preparing your POS environment for {{ loginData.profile }}</p>
+        </div>
+
+        <div class="space-y-4 text-left">
+          <div v-for="step in masterLoadingSteps" :key="step.label" class="flex items-center gap-3">
+            <div :class="['w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors', step.completed ? 'bg-green-500' : 'bg-gray-100']">
+              <FeatherIcon v-if="step.completed" name="check" class="w-3 h-3 text-white" />
+              <div v-else class="w-1.5 h-1.5 bg-gray-300 rounded-full animate-pulse"></div>
+            </div>
+            <span :class="['text-xs font-bold transition-colors', step.completed ? 'text-gray-900' : 'text-gray-400']">{{ step.label }}</span>
+          </div>
+        </div>
+
+        <div class="mt-8 bg-gray-50 h-2 rounded-full overflow-hidden">
+          <div 
+            class="h-full bg-[#39ADA8] transition-all duration-500 ease-out shadow-[0_0_10px_rgba(57,173,168,0.3)]"
+            :style="{ width: `${masterProgressPercentage}%` }"
+          ></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Sidebar Overlay & Menu Logic -->
     <Transition enter-active-class="transition-opacity duration-300 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition-opacity duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
       <div v-if="showSidebar" @click="showSidebar = false" class="fixed inset-0 bg-gray-900/20 backdrop-blur-[2px] z-[70]"></div>
@@ -899,14 +931,9 @@ export default {
           if (data.opening_entry) {
             this.loginData.company = data.opening_entry.company
             this.loginData.profile = data.opening_entry.pos_profile
-            const profile = this.availableProfiles.find(p => p.name === data.opening_entry.pos_profile)
-            if (profile) {
-              // Now we have the profile, we can load master data
-              this.loadMasterData(profile)
-              this.showLoginModal = false
-            } else {
-              this.showLoginModal = true
-            }
+            // We don't call loadMasterData here automatically anymore
+            // The user must confirm the login modal first
+            this.showLoginModal = true
           } else {
             this.showLoginModal = true
           }
@@ -1275,8 +1302,8 @@ export default {
           }
           this.showLoginModal = false
           this.setOpeningTime()
-          // Start loading items for the profile's warehouse
-          this.itemsResource.fetch({ warehouse: profile.warehouse })
+          // Start loading master data for the profile
+          this.loadMasterData(profile)
         }
       }).catch((err) => {
         this.loginError = 'An error occurred during session validation.'
@@ -1302,10 +1329,6 @@ export default {
         this.setOpeningTime()
         // Now load master data as session is created
         this.loadMasterData(profile)
-      }).catch((err) => {
-        this.alertMessage = 'Error creating session.'
-        this.showAlert = true
-        console.error(err)
       })
     },
     confirmLogin() {
@@ -1320,17 +1343,21 @@ export default {
     loadMasterData(profile) {
       if (!profile) return
       
+      console.log('🔄 Loading master data for profile:', profile.name)
       this.showDataLoadingModal = true
+
+      // Reset data before fetch to show loading state
+      this.customers = []
+      this.priceLists = []
+      this.items = []
 
       // 1. Fetch Items filtered by warehouse and price list
       this.itemsResource.fetch({
         priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
         warehouse: profile.warehouse
-      }).then(() => {
-        if (this.isMasterDataLoaded) this.showDataLoadingModal = false
       })
 
-      // 2. Fetch Customers filtered by the selected company (using the child table custom_companies)
+      // 2. Fetch Customers filtered by the selected company
       this.customersResource.fetch({
         doctype: 'Customer',
         fields: ['name', 'customer_name', 'mobile_no'],
@@ -1338,8 +1365,6 @@ export default {
             'custom_companies': ['like', `%${this.loginData.company}%`]
         },
         limit_page_length: 2000
-      }).then(() => {
-        if (this.isMasterDataLoaded) this.showDataLoadingModal = false
       })
 
       // 3. Fetch Suppliers
@@ -1355,8 +1380,6 @@ export default {
             custom_company: this.loginData.company
         },
         limit_page_length: 100
-      }).then(() => {
-        if (this.isMasterDataLoaded) this.showDataLoadingModal = false
       })
     },
     setOpeningTime() {
