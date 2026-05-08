@@ -230,7 +230,7 @@ def sync_offline_orders(orders):
             doc.company = order.get("company")
             doc.is_pos = 1
             doc.update_stock = 1
-            
+
             # Add Items
             for item in order.get("cart", []):
                 doc.append("items", {
@@ -239,7 +239,7 @@ def sync_offline_orders(orders):
                     "rate": item.get("standard_rate"),
                     "warehouse": item.get("warehouse") or frappe.db.get_value("POS Profile", doc.pos_profile, "warehouse")
                 })
-            
+
             # Handle Payments
             payment = order.get("payment", {})
             if payment.get("method") == "Cash" and payment.get("amount") > 0:
@@ -247,31 +247,92 @@ def sync_offline_orders(orders):
                     "mode_of_payment": "Cash",
                     "amount": payment.get("amount")
                 })
-            
+
             doc.insert()
             doc.submit()
             synced_count += 1
-            
+
         except Exception:
             frappe.log_error(title="POS Sync Error", message=frappe.get_traceback())
             continue
-            
+
     return {"synced_count": synced_count}
+
+@frappe.whitelist()
+def process_payment(party_type, party, amount, invoices, payment_mode="Cash"):
+
+    print("process_payment", party_type, party, amount, invoices, payment_mode)
+    frappe.log_error(title="POS Payment Error", message=f"Party Type: {party_type}, Party: {party}, Amount: {amount}, Invoices: {invoices}, Payment Mode: {payment_mode}")
+
+
+
+    """
+    Creates a Payment Entry for selected invoices.
+    """
+    if isinstance(invoices, str):
+        invoices = json.loads(invoices)
+
+    amount = float(amount)
+
+    try:
+        # Create Payment Entry
+        pe = frappe.new_doc("Payment Entry")
+        pe.payment_type = "Receive" if party_type == "Customer" else "Pay"
+        pe.party_type = party_type
+        pe.party = party
+        pe.paid_amount = amount
+        pe.received_amount = amount
+        pe.reference_no = f"POS-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}"
+        pe.reference_date = frappe.utils.today()
+
+        # Get Mode of Payment details (Account)
+        account_paid_to = frappe.get_value("Mode of Payment Account",
+            {"parent": payment_mode, "company": frappe.defaults.get_user_default("company")},
+            "default_account")
+
+        if party_type == "Customer":
+            pe.paid_to = account_paid_to or frappe.get_value("Company", pe.company, "default_cash_account")
+        else:
+            pe.paid_from = account_paid_to or frappe.get_value("Company", pe.company, "default_cash_account")
+
+        # Add References (Invoices)
+        for inv_name in invoices:
+            inv_doc = frappe.get_doc("Sales Invoice" if party_type == "Customer" else "Purchase Invoice", inv_name)
+
+            # Calculate how much to allocate to this invoice
+            allocated = min(amount, inv_doc.outstanding_amount)
+            if allocated <= 0:
+                continue
+
+            pe.append("references", {
+                "reference_doctype": inv_doc.doctype,
+                "reference_name": inv_doc.name,
+                "total_amount": inv_doc.grand_total,
+                "outstanding_amount": inv_doc.outstanding_amount,
+                "allocated_amount": allocated
+            })
+
+            amount -= allocated
+            if amount <= 0:
+                break
+
+        pe.insert()
+        pe.submit()
+
+        return {"status": "success", "name": pe.name}
+
+    except Exception as e:
+        frappe.log_error(title="POS Payment Error", message=frappe.get_traceback())
+        frappe.throw(f"Error processing payment: {e!r}")
 
 @frappe.whitelist()
 def create_cash_transaction(type, amount, reason, company, pos_profile):
     """
     Creates a Cash Transaction record for In/Out movements from the POS.
     """
-    # Create a new POS Invoice or a custom 'Cash Transaction' doctype if you have one.
-    # For now, let's assume we use a Journal Entry or a custom DocType.
-    # This logic should be adapted to your specific requirements.
-    
-    # Example: Create a log entry or specific Frappe record
-    # Replace 'Cash Transaction' with your actual DocType name
     try:
         doc = frappe.get_doc({
-            "doctype": "Cash Transaction", # Ensure this DocType exists
+            "doctype": "Cash Transaction",
             "type": type,
             "amount": float(amount),
             "reason": reason,
@@ -283,9 +344,7 @@ def create_cash_transaction(type, amount, reason, company, pos_profile):
         })
         doc.insert()
         return {"status": "success", "name": doc.name}
-    except Exception as e:
-        # If custom DocType doesn't exist, we can fallback to log_error
+    except Exception:
         frappe.log_error(title="POS Cash Transaction Error", message=frappe.get_traceback())
-        # Return success anyway for the UI if we just want to log it for now
         return {"status": "logged"}
 

@@ -856,6 +856,7 @@ export default {
       showHistoryModal: false,
       showSidebar: false,
       showLoginModal: false, // Wait for master data sync first
+      showDataLoadingModal: false, // New modal for loading master data after profile selection
       showPaymentPopup: false,
       showAlert: false,
       alertMessage: '',
@@ -896,17 +897,18 @@ export default {
           this.availableProfiles = data.profiles || []
           
           if (data.opening_entry) {
-            // Pre-select based on active opening entry
             this.loginData.company = data.opening_entry.company
             this.loginData.profile = data.opening_entry.pos_profile
-            
-            // Fetch items for the active session's profile
             const profile = this.availableProfiles.find(p => p.name === data.opening_entry.pos_profile)
             if (profile) {
-              this.itemsResource.fetch({
-                priceLists: JSON.stringify([{ name: profile.selling_price_list }])
-              })
+              // Now we have the profile, we can load master data
+              this.loadMasterData(profile)
+              this.showLoginModal = false
+            } else {
+              this.showLoginModal = true
             }
+          } else {
+            this.showLoginModal = true
           }
         }
       }),
@@ -915,53 +917,37 @@ export default {
       }),
       customersResource: createResource({
         url: 'frappe.client.get_list',
-        params: {
-          doctype: 'Customer',
-          fields: ['name', 'customer_name', 'mobile_no'],
-          limit_page_length: 2000,
-        },
-        auto: true,
+        auto: false,
         onSuccess: (data) => {
           this.customers = data
-          // Auto-select the first customer if none is selected
           if (data && data.length > 0 && this.activeOrder && !this.activeOrder.selectedCustomer) {
             this.selectCustomer(data[0])
           }
+          if (this.isMasterDataLoaded) this.showDataLoadingModal = false
         }
       }),
       suppliersResource: createResource({
         url: 'frappe.client.get_list',
-        params: {
-          doctype: 'Supplier',
-          fields: ['name', 'supplier_name', 'mobile_no'],
-          limit_page_length: 1000,
-        },
-        auto: true,
+        auto: false,
         onSuccess: (data) => {
           this.suppliers = data
+          if (this.isMasterDataLoaded) this.showDataLoadingModal = false
         }
       }),
       priceListsResource: createResource({
         url: 'frappe.client.get_list',
-        params: {
-          doctype: 'Price List',
-          fields: ['name'],
-          filters: { enabled: 1, selling: 1 },
-          limit_page_length: 100,
-        },
-        auto: true,
+        auto: false,
         onSuccess: (data) => {
           this.priceLists = data
+          if (this.isMasterDataLoaded) this.showDataLoadingModal = false
         }
       }),
       itemsResource: createResource({
         url: 'optilens_app.api.pos.get_item',
-        params: {
-          warehouse: 'Stores - OA'
-        },
+        auto: false,
         onSuccess: (data) => {
           this.items = data
-          // All steps are auto-managed via computed, popup closes when all ready
+          if (this.isMasterDataLoaded) this.showDataLoadingModal = false
         }
       }),
       customerInvoicesResource: createResource({
@@ -978,17 +964,20 @@ export default {
       }),
       cashTransactionsResource: createResource({
         url: 'optilens_app.api.pos.create_cash_transaction'
+      }),
+      processPaymentResource: createResource({
+        url: 'optilens_app.api.pos.process_payment'
       })
     }
   },
   computed: {
+    isInitializing() {
+      // Phase 1: Only wait for Companies & Profiles to show the login modal
+      return this.posDataResource.loading
+    },
     loadingSteps() {
       return [
-        { label: 'POS Context', completed: this.companiesList.length > 0 },
-        { label: 'Price Lists', completed: this.priceLists.length > 0 },
-        { label: 'Customers', completed: this.customers.length > 0 },
-        { label: 'Suppliers', completed: this.suppliers.length > 0 },
-        { label: 'Product Catalog', completed: this.items.length > 0 }
+        { label: 'POS Profiles', completed: this.companiesList.length > 0 }
       ]
     },
     filteredProfiles() {
@@ -998,8 +987,19 @@ export default {
     isLoginValid() {
       return this.loginData.company && this.loginData.profile && this.loginData.password.length >= 4
     },
-    openingAmount() {
-      return this.denominations.reduce((sum, d) => sum + (d.value * (d.qty || 0)), 0)
+    masterLoadingSteps() {
+      return [
+        { label: 'Customer Records', completed: this.customers.length > 0 },
+        { label: 'Price Lists', completed: this.priceLists.length > 0 },
+        { label: 'Product Catalog', completed: this.items.length > 0 }
+      ]
+    },
+    masterProgressPercentage() {
+      const completed = this.masterLoadingSteps.filter(s => s.completed).length
+      return Math.round((completed / this.masterLoadingSteps.length) * 100)
+    },
+    isMasterDataLoaded() {
+      return this.masterLoadingSteps.every(s => s.completed)
     },
     progressPercentage() {
       const completed = this.loadingSteps.filter(s => s.completed).length
@@ -1295,18 +1295,15 @@ export default {
       this.createSessionResource.submit({
         company: this.loginData.company,
         pos_profile: this.loginData.profile,
-        denominations: this.denominations
-      }).then(() => {
-        // Fetch items with the correct price list after session creation
-        this.itemsResource.fetch({
-          priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
-          warehouse: profile.warehouse
-        })
-        this.showLoginModal = false
+        balance_details: JSON.stringify(this.denominations)
+      }).then((data) => {
         this.showDenominations = false
+        this.showLoginModal = false
         this.setOpeningTime()
+        // Now load master data as session is created
+        this.loadMasterData(profile)
       }).catch((err) => {
-        this.alertMessage = 'Failed to create new POS session.'
+        this.alertMessage = 'Error creating session.'
         this.showAlert = true
         console.error(err)
       })
@@ -1315,13 +1312,52 @@ export default {
       // This is used when a session already exists
       const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
       if (profile) {
-        this.itemsResource.fetch({
-          priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
-          warehouse: profile.warehouse
-        })
+        this.loadMasterData(profile)
         this.showLoginModal = false
         this.setOpeningTime()
       }
+    },
+    loadMasterData(profile) {
+      if (!profile) return
+      
+      this.showDataLoadingModal = true
+
+      // 1. Fetch Items filtered by warehouse and price list
+      this.itemsResource.fetch({
+        priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
+        warehouse: profile.warehouse
+      }).then(() => {
+        if (this.isMasterDataLoaded) this.showDataLoadingModal = false
+      })
+
+      // 2. Fetch Customers filtered by the selected company (using the child table custom_companies)
+      this.customersResource.fetch({
+        doctype: 'Customer',
+        fields: ['name', 'customer_name', 'mobile_no'],
+        filters: {
+            'custom_companies': ['like', `%${this.loginData.company}%`]
+        },
+        limit_page_length: 2000
+      }).then(() => {
+        if (this.isMasterDataLoaded) this.showDataLoadingModal = false
+      })
+
+      // 3. Fetch Suppliers
+      this.suppliersResource.fetch()
+
+      // 4. Fetch Price Lists filtered by the selected company
+      this.priceListsResource.fetch({
+        doctype: 'Price List',
+        fields: ['name'],
+        filters: { 
+            enabled: 1, 
+            selling: 1,
+            custom_company: this.loginData.company
+        },
+        limit_page_length: 100
+      }).then(() => {
+        if (this.isMasterDataLoaded) this.showDataLoadingModal = false
+      })
     },
     setOpeningTime() {
       const now = new Date()
@@ -1413,6 +1449,11 @@ export default {
       }
       this.orders.push(newOrder)
       this.activeOrderId = newOrder.id
+
+      // Auto-select first customer for the new order
+      if (this.customers && this.customers.length > 0) {
+        this.selectCustomer(this.customers[0])
+      }
     },
     selectPriceList(pl) {
       if (this.activeOrder) {
@@ -1688,14 +1729,51 @@ export default {
       // For now, let's just highlight it and let the user click the main Pay button
       // Or we can call processPayment() directly if you prefer
     },
-    processPayment() {
+    async processPayment() {
       if (!this.paymentAmount || this.paymentAmount <= 0) {
-        alert('Please enter a valid payment amount')
+        this.alertMessage = 'Please enter a valid payment amount'
+        this.showAlert = true
         return
       }
-      console.log('Processing payment of', this.paymentAmount, 'for customer', this.selectedCustomer?.name)
-      // TODO: Implement actual payment recording logic
-      alert(`Processing payment of ${this.formatCurrency(this.paymentAmount)}`)
+
+      if (!this.selectedInvoiceNames || this.selectedInvoiceNames.length === 0) {
+        this.alertMessage = 'Please select at least one invoice to pay'
+        this.showAlert = true
+        return
+      }
+
+      const party = this.entityMode === 'customer' ? this.selectedCustomer : this.selectedSupplier
+      if (!party) {
+        this.alertMessage = `Please select a ${this.entityMode} first`
+        this.showAlert = true
+        return
+      }
+
+      try {
+        await this.processPaymentResource.submit({
+          party_type: this.entityMode === 'customer' ? 'Customer' : 'Supplier',
+          party: party.name,
+          amount: this.paymentAmount,
+          invoices: JSON.stringify(this.selectedInvoiceNames)
+        })
+
+        this.alertMessage = `Successfully processed payment of ${this.formatCurrency(this.paymentAmount)}`
+        this.showAlert = true
+        
+        // Reset and refresh
+        this.paymentAmount = 0
+        this.selectedInvoiceNames = []
+        
+        if (this.entityMode === 'customer') {
+          this.customerInvoicesResource.fetch({ customer: party.name })
+        } else {
+          this.supplierInvoicesResource.fetch({ supplier: party.name })
+        }
+      } catch (err) {
+        console.error('Payment failed:', err)
+        this.alertMessage = 'Failed to process payment. Please try again.'
+        this.showAlert = true
+      }
     },
     printCustomerInvoices() {
       if (!this.invoices || this.invoices.length === 0) {
