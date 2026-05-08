@@ -943,7 +943,7 @@ export default {
         url: 'optilens_app.api.pos.create_pos_session'
       }),
       customersResource: createResource({
-        url: 'frappe.client.get_list',
+        url: 'optilens_app.api.pos.get_pos_customers',
         auto: false,
         onSuccess: (data) => {
           this.customers = data
@@ -954,7 +954,7 @@ export default {
         }
       }),
       suppliersResource: createResource({
-        url: 'frappe.client.get_list',
+        url: 'optilens_app.api.pos.get_pos_suppliers',
         auto: false,
         onSuccess: (data) => {
           this.suppliers = data
@@ -1017,6 +1017,7 @@ export default {
     masterLoadingSteps() {
       return [
         { label: 'Customer Records', completed: this.customers.length > 0 },
+        { label: 'Supplier Records', completed: this.suppliers.length > 0 },
         { label: 'Price Lists', completed: this.priceLists.length > 0 },
         { label: 'Product Catalog', completed: this.items.length > 0 }
       ]
@@ -1357,18 +1358,15 @@ export default {
         warehouse: profile.warehouse
       })
 
-      // 2. Fetch Customers filtered by the selected company
+      // 2. Fetch Customers filtered by the selected company via custom API
       this.customersResource.fetch({
-        doctype: 'Customer',
-        fields: ['name', 'customer_name', 'mobile_no'],
-        filters: {
-            'custom_companies': ['like', `%${this.loginData.company}%`]
-        },
-        limit_page_length: 2000
+        company: this.loginData.company
       })
 
-      // 3. Fetch Suppliers
-      this.suppliersResource.fetch()
+      // 3. Fetch Suppliers filtered by the selected company via custom API
+      this.suppliersResource.fetch({
+        company: this.loginData.company
+      })
 
       // 4. Fetch Price Lists filtered by the selected company
       this.priceListsResource.fetch({

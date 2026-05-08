@@ -2,10 +2,48 @@ import frappe
 import json
 
 @frappe.whitelist()
+def get_pos_suppliers(company):
+    """
+    Fetch suppliers that have the selected company in their 'custom_company' field.
+    """
+    if not company:
+        return []
+
+    suppliers = frappe.get_all(
+        "Supplier",
+        fields=["name", "supplier_name", "mobile_no"],
+        filters={
+            "custom_company": company
+        },
+        limit_page_length=3000
+    )
+    return suppliers
+
+@frappe.whitelist()
+def get_pos_customers(company):
+    """
+    Fetch customers that have the selected company in their 'custom_companies' child table.
+    """
+    if not company:
+        return []
+
+    # We use a subquery or join to filter customers by the child table
+    customers = frappe.get_all(
+        "Customer",
+        fields=["name", "customer_name", "mobile_no"],
+        filters=[
+            ["Customer Company", "company", "=", company]
+        ],
+        distinct=True,
+        limit_page_length=3000
+    )
+    return customers
+
+@frappe.whitelist()
 def get_pos_data(company=None, pos_profile=None):
     # Get all companies
     companies = frappe.get_all("Company", fields=["name", "default_currency"])
-    
+
     # Get all POS Profiles
     profiles = frappe.get_all("POS Profile", 
         fields=["name", "company", "warehouse", "selling_price_list"],
