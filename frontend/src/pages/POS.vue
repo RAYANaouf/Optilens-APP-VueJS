@@ -923,6 +923,10 @@ export default {
         auto: true,
         onSuccess: (data) => {
           this.customers = data
+          // Auto-select the first customer if none is selected
+          if (data && data.length > 0 && this.activeOrder && !this.activeOrder.selectedCustomer) {
+            this.selectCustomer(data[0])
+          }
         }
       }),
       suppliersResource: createResource({
