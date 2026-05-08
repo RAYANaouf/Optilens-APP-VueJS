@@ -511,17 +511,16 @@
       </div>
     </Transition>
 
-    <!-- Payment Dialog -->
-    <Dialog 
-      v-model="showPaymentPopup" 
-      :options="{
-        title: 'Payment Details',
-        size: 'sm'
-      }"
-      class="centered-dialog-title"
-    >
-      <template #body-content>
+    <!-- Payment Popup -->
+    <div v-if="showPaymentPopup" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
+      <div class="bg-white p-6 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 border border-gray-100 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#39ADA8]"></div>
+        
         <div class="space-y-6 py-2">
+          <div class="text-center mb-4">
+            <h3 class="text-xl font-black text-gray-900">Payment Details</h3>
+          </div>
+
           <!-- Total Summary -->
           <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center">
             <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Amount Due</span>
@@ -542,7 +541,7 @@
             </div>
           </div>
 
-          <!-- Remaining Balance (Read-only) -->
+          <!-- Remaining Balance -->
           <div class="grid grid-cols-1 gap-2">
             <div class="px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
               <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -554,7 +553,7 @@
             </div>
           </div>
 
-          <!-- Payment Method Selection -->
+          <!-- Payment Method -->
           <div class="space-y-2">
             <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Method</label>
             <div class="grid grid-cols-2 gap-3">
@@ -574,37 +573,35 @@
               </button>
             </div>
           </div>
-        </div>
-      </template>
-      <template #actions>
-        <div class="flex gap-3 w-full mt-4">
-          <button 
-            @click="showPaymentPopup = false"
-            class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
-          >
-            Cancel
-          </button>
-          <button 
-            @click="confirmOrderPayment"
-            class="flex-1 py-4 bg-[#39ADA8] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98]"
-          >
-            Confirm Pay
-          </button>
-        </div>
-      </template>
-    </Dialog>
 
-    <!-- Cash Transaction Dialog (In/Out) -->
-    <Dialog 
-      v-model="showMoneyModal" 
-      :options="{
-        title: 'Cash Transaction',
-        size: 'sm'
-      }"
-      class="centered-dialog-title"
-    >
-      <template #body-content>
+          <div class="flex gap-3 w-full mt-6">
+            <button 
+              @click="showPaymentPopup = false"
+              class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
+            >
+              Cancel
+            </button>
+            <button 
+              @click="confirmOrderPayment"
+              class="flex-1 py-4 bg-[#39ADA8] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98]"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cash Transaction Popup -->
+    <div v-if="showMoneyModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
+      <div class="bg-white p-6 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 border border-gray-100 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#39ADA8]"></div>
+        
         <div class="space-y-6 py-2">
+          <div class="text-center mb-4">
+            <h3 class="text-xl font-black text-gray-900">Cash Transaction</h3>
+          </div>
+
           <!-- Type Selection -->
           <div class="grid grid-cols-2 gap-3">
             <button 
@@ -655,52 +652,44 @@
               placeholder="Enter reason..."
             ></textarea>
           </div>
-        </div>
-      </template>
-      <template #actions>
-        <div class="flex gap-3 w-full mt-4">
-          <button 
-            @click="showMoneyModal = false"
-            class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
-          >
-            Cancel
-          </button>
-          <button 
-            @click="handleCashTransaction"
-            :disabled="!cashTransaction.amount || !cashTransaction.reason"
-            class="flex-1 py-4 bg-[#39ADA8] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50"
-          >
-            Confirm
-          </button>
-        </div>
-      </template>
-    </Dialog>
 
-    <!-- Modern Alert Dialog -->
-    <Dialog 
-      v-model="showAlert" 
-      :options="{
-        title: 'Notification',
-        size: 'sm'
-      }"
-      class="centered-dialog-title"
-    >
-      <template #body-content>
+          <div class="flex gap-3 w-full mt-6">
+            <button 
+              @click="showMoneyModal = false"
+              class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 transition-all"
+            >
+              Cancel
+            </button>
+            <button 
+              @click="handleCashTransaction"
+              :disabled="!cashTransaction.amount || !cashTransaction.reason"
+              class="flex-1 py-4 bg-[#39ADA8] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Popup -->
+    <div v-if="showAlert" class="fixed inset-0 z-[250] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
+      <div class="bg-white p-6 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 border border-gray-100 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#39ADA8]"></div>
         <div class="py-4 text-center">
+          <h3 class="text-lg font-black text-gray-900 mb-2">Notification</h3>
           <p class="text-sm font-bold text-gray-700">{{ alertMessage }}</p>
         </div>
-      </template>
-      <template #actions>
-        <div class="w-full flex justify-center">
+        <div class="w-full flex justify-center mt-4">
           <button 
             @click="showAlert = false"
-            class="px-8 py-2.5 bg-[#39ADA8] text-white rounded-xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98]"
+            class="px-8 py-3 bg-[#39ADA8] text-white rounded-xl font-black text-sm uppercase tracking-widest hover:opacity-90 transition-all active:scale-[0.98]"
           >
             OK
           </button>
         </div>
-      </template>
-    </Dialog>
+      </div>
+    </div>
 
     <!-- Initial Profile Selection Popup -->
     <div v-if="showLoginModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
@@ -1750,5 +1739,32 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+</style>
+
+<style>
+/* Exact targeting for Frappe UI Dialog internal structure */
+.v-modal .v-dialog,
+.v-modal .v-dialog > div,
+.frappe-dialog,
+.frappe-dialog > div,
+[role="dialog"],
+[role="dialog"] > div {
+  border-radius: 25px !important;
+  overflow: hidden !important;
+}
+
+.v-modal .v-dialog-header,
+.frappe-dialog-header,
+.frappe-modal-header,
+[role="dialog"] header,
+.v-dialog header {
+  border-top-left-radius: 25px !important;
+  border-top-right-radius: 25px !important;
+}
+
+/* Ensure the background overlay doesn't have radius, only the content box */
+.v-modal {
+  border-radius: 0 !important;
 }
 </style>
