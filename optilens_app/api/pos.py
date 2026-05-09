@@ -17,7 +17,7 @@ def get_pos_opening_entry(company, pos_profile):
             "user": frappe.session.user,
             "status": "Open"
         },
-        ["name", "posting_time", "posting_date"],
+        ["name", "period_start_date"],
         as_dict=True
     )
     return opening_entry
@@ -93,8 +93,9 @@ def get_pos_data(company=None, pos_profile=None):
         filters["pos_profile"] = pos_profile
 
     opening_entry = frappe.get_all("POS Opening Entry", 
+        fields=["name", "pos_profile", "company", "period_start_date"],
         filters=filters,
-        fields=["name", "pos_profile", "company"]
+        order_by="creation desc"
     )
     
     return {
@@ -146,7 +147,7 @@ def create_pos_session(company, pos_profile, denominations):
         "pos_profile": doc.pos_profile,
         "company": doc.company,
         "opening_amount": opening_amount,
-        "posting_date": doc.posting_date
+        "period_start_date": doc.period_start_date
     }
 
 @frappe.whitelist()

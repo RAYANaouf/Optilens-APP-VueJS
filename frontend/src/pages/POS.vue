@@ -1013,8 +1013,13 @@ export default {
         url: 'optilens_app.api.pos.get_pos_opening_entry',
         auto: false,
         onSuccess: (data) => {
-          if (data && data.posting_time) {
-            this.openingTime = data.posting_time.substring(0, 5)
+          if (data && data.period_start_date) {
+            // period_start_date is a datetime string like "2023-10-27 12:06:45"
+            // We extract the HH:mm part
+            const timePart = data.period_start_date.split(' ')[1]
+            if (timePart) {
+              this.openingTime = timePart.substring(0, 5)
+            }
           }
           if (this.isMasterDataLoaded) this.showDataLoadingModal = false
         }
@@ -1355,7 +1360,7 @@ export default {
           this.activeOrder.priceListSearch = profile.selling_price_list || profile.price_list
         }
         this.showLoginModal = false
-        this.setOpeningTime()
+        // openingTime is already fetched during the 'Session Details' sync step in loadMasterData
         // Start loading master data for the profile
         this.loadMasterData(profile)
       }).catch((err) => {
@@ -1380,9 +1385,12 @@ export default {
         this.showDenominations = false
         this.showLoginModal = false
         
-        // Use the posting_time from the newly created session
-        if (data && data.posting_time) {
-          this.openingTime = data.posting_time.substring(0, 5)
+        // Use the period_start_date from the newly created session
+        if (data && data.period_start_date) {
+          const timePart = data.period_start_date.split(' ')[1]
+          if (timePart) {
+            this.openingTime = timePart.substring(0, 5)
+          }
         } else {
           this.setOpeningTime()
         }
@@ -1397,7 +1405,7 @@ export default {
       if (profile) {
         this.loadMasterData(profile)
         this.showLoginModal = false
-        this.setOpeningTime()
+        // openingTime is already fetched during the 'Session Details' sync step in loadMasterData
       }
     },
     loadMasterData(profile) {
