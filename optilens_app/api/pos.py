@@ -73,6 +73,14 @@ def get_pos_data(company=None, pos_profile=None):
         filters={"disabled": 0}
     )
 
+    # Enrich profiles with default payment method from the 'payments' child table
+    for profile in profiles:
+        default_payment = frappe.db.get_value("POS Payment Method",
+            {"parent": profile.name, "default": 1},
+            "mode_of_payment"
+        )
+        profile["default_payment_method"] = default_payment or "Cash"
+
     # Check for active POS Opening Entry
     filters = {
         "user": frappe.session.user,
@@ -109,25 +117,36 @@ def create_pos_session(company, pos_profile, denominations):
     doc.pos_profile = pos_profile
     doc.user = frappe.session.user
     doc.period_start_date = frappe.utils.now_datetime()
-    
+    doc.posting_date      = frappe.utils.now_datetime()
+
+    # Get default payment method from POS Profile
+    default_payment = frappe.db.get_value("POS Payment Method",
+        {"parent": pos_profile, "default": 1},
+        "mode_of_payment"
+    ) 
+
+    print("=======> default_payment", default_payment)
+
+    total = 0
     for d in denominations:
         if d.get("qty"):
-            doc.append("balance_details", {
-                "denomination": d.get("value"),
-                "count": d.get("qty"),
-                "amount": float(d.get("value")) * float(d.get("qty"))
-            })
+            total += float(d.get("value")) * float(d.get("qty"))
+
+    doc.append("balance_details", {
+        "mode_of_payment": default_payment,
+        "opening_amount": total
+        })
     
     doc.insert()
     doc.submit()
-    
+
     return {
         "status": "success",
         "name": doc.name,
         "pos_profile": doc.pos_profile,
         "company": doc.company,
         "opening_amount": opening_amount,
-        "posting_time": doc.posting_time
+        "posting_date": doc.posting_date
     }
 
 @frappe.whitelist()
@@ -225,17 +244,22 @@ def get_item(priceLists=None, warehouse=None):
     return items
 
 @frappe.whitelist()
-def get_customer_invoices(customer):
+def get_customer_invoices(customer, company=None):
     if not customer:
         return []
 
+    filters = {
+        "customer": customer,
+        "docstatus": 1,
+        "outstanding_amount": [">", 0]
+    }
+
+    if company:
+        filters["company"] = company
+
     invoices = frappe.get_all(
         "Sales Invoice",
-        filters={
-            "customer": customer,
-            "docstatus": 1,
-            "outstanding_amount": [">", 0]
-        },
+        filters=filters,
         fields=[
             "name", "posting_date", "grand_total",
             "outstanding_amount", "currency", "due_date"
@@ -245,17 +269,22 @@ def get_customer_invoices(customer):
     return invoices
 
 @frappe.whitelist()
-def get_supplier_invoices(supplier):
+def get_supplier_invoices(supplier, company=None):
     if not supplier:
         return []
 
+    filters = {
+        "supplier": supplier,
+        "docstatus": 1,
+        "outstanding_amount": [">", 0]
+    }
+
+    if company:
+        filters["company"] = company
+
     invoices = frappe.get_all(
         "Purchase Invoice",
-        filters={
-            "supplier": supplier,
-            "docstatus": 1,
-            "outstanding_amount": [">", 0]
-        },
+        filters=filters,
         fields=[
             "name", "posting_date", "grand_total",
             "outstanding_amount", "currency", "due_date"

@@ -533,49 +533,19 @@
         <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#39ADA8]"></div>
         
         <div class="mb-6 flex flex-col items-center">
-          <div class="relative w-24 h-24 mb-4">
-            <!-- Background Circle -->
-            <svg class="w-full h-full transform -rotate-90">
-              <circle
-                cx="48"
-                cy="48"
-                r="40"
-                stroke="currentColor"
-                stroke-width="8"
-                fill="transparent"
-                class="text-gray-100"
-              />
-              <!-- Progress/Done Circle -->
-              <circle
-                cx="48"
-                cy="48"
-                r="40"
-                stroke="currentColor"
-                stroke-width="8"
-                fill="transparent"
-                stroke-dasharray="251.2"
-                :stroke-dashoffset="paymentProcessingStatus === 'done' ? '0' : '180'"
-                :class="[
-                  'transition-all duration-700 ease-in-out',
-                  paymentProcessingStatus === 'done' ? 'text-green-500' : 'text-[#39ADA8] animate-[spin_2s_linear_infinite]'
-                ]"
-              />
-            </svg>
-            <!-- Center Icon -->
-            <div class="absolute inset-0 flex items-center justify-center">
-              <Transition
-                enter-active-class="transition duration-500 delay-300"
-                enter-from-class="scale-0 opacity-0"
-                enter-to-class="scale-100 opacity-100"
-              >
-                <div v-if="paymentProcessingStatus === 'done'" class="text-green-500">
-                  <FeatherIcon name="check" class="w-10 h-10" stroke-width="4" />
-                </div>
-                <div v-else class="text-[#39ADA8]">
-                  <FeatherIcon name="loader" class="w-8 h-8 animate-spin" stroke-width="3" />
-                </div>
-              </Transition>
-            </div>
+          <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+            <Transition
+              enter-active-class="transition duration-500"
+              enter-from-class="scale-0 opacity-0"
+              enter-to-class="scale-100 opacity-100"
+            >
+              <div v-if="paymentProcessingStatus === 'done'" class="text-green-500 bg-green-50 p-4 rounded-full">
+                <FeatherIcon name="check" class="w-10 h-10" stroke-width="4" />
+              </div>
+              <div v-else class="flex items-center justify-center">
+                <div class="w-12 h-12 border-4 border-[#39ADA8]/20 border-t-[#39ADA8] rounded-full animate-spin"></div>
+              </div>
+            </Transition>
           </div>
           
           <h2 class="text-xl font-black text-gray-900">
@@ -1679,7 +1649,8 @@ export default {
         
         // Fetch invoices for the selected customer
         this.customerInvoicesResource.fetch({
-          customer: customer.name
+          customer: customer.name,
+          company: this.loginData.company
         })
       }
     },
@@ -1711,7 +1682,8 @@ export default {
         
         // Fetch invoices for the selected supplier
         this.supplierInvoicesResource.fetch({
-          supplier: supplier.name
+          supplier: supplier.name,
+          company: this.loginData.company
         })
       }
     },
@@ -1900,11 +1872,17 @@ export default {
           this.selectedInvoiceNames = []
           
           if (this.entityMode === 'customer') {
-            this.customerInvoicesResource.fetch({ customer: party.name })
+            this.customerInvoicesResource.fetch({ 
+              customer: party.name,
+              company: this.loginData.company
+            })
           } else {
-            this.supplierInvoicesResource.fetch({ supplier: party.name })
+            this.supplierInvoicesResource.fetch({ 
+              supplier: party.name,
+              company: this.loginData.company
+            })
           }
-        }, 1500)
+        }, 800)
 
       } catch (err) {
         console.error('Payment failed:', err)
