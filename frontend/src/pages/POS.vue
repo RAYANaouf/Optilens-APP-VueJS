@@ -975,7 +975,6 @@ export default {
         { value: 20, qty: 0 },
         { value: 50, qty: 0 },
         { value: 100, qty: 0 },
-        { value: 200, qty: 0 },
         { value: 500, qty: 0 },
         { value: 1000, qty: 0 },
         { value: 2000, qty: 0 }
@@ -1040,6 +1039,16 @@ export default {
           if (this.isMasterDataLoaded) this.showDataLoadingModal = false
         }
       }),
+      openingEntryResource: createResource({
+        url: 'optilens_app.api.pos.get_pos_opening_entry',
+        auto: false,
+        onSuccess: (data) => {
+          if (data && data.posting_time) {
+            this.openingTime = data.posting_time.substring(0, 5)
+          }
+          if (this.isMasterDataLoaded) this.showDataLoadingModal = false
+        }
+      }),
       customerInvoicesResource: createResource({
         url: 'optilens_app.api.pos.get_customer_invoices',
         onSuccess: (data) => {
@@ -1079,6 +1088,7 @@ export default {
     },
     masterLoadingSteps() {
       return [
+        { label: 'Session Details', completed: !!this.openingTime },
         { label: 'Customer Records', completed: this.customers.length > 0 },
         { label: 'Supplier Records', completed: this.suppliers.length > 0 },
         { label: 'Price Lists', completed: this.priceLists.length > 0 },
@@ -1184,6 +1194,10 @@ export default {
     },
     cartTotal() {
       return this.cart.reduce((sum, item) => sum + ((item.standard_rate || 0) * item.qty), 0)
+    },
+    openingAmount() {
+      if (!this.denominations) return 0
+      return this.denominations.reduce((sum, d) => sum + (d.value * (d.qty || 0)), 0)
     },
   },
   watch: {
@@ -1348,6 +1362,14 @@ export default {
         pos_profile: this.loginData.profile
       }).then((data) => {
         console.log("founded ====> " , data.opening_entry)
+        
+        // Use the profile from the available list
+        const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
+        if (!profile) {
+          this.loginError = 'Profile not found.'
+          return
+        }
+
         if (!data || !data.opening_entry) {
           console.log("No session found, show denominations screen")
           // No session found, show denominations screen
@@ -1357,18 +1379,15 @@ export default {
 
         console.log("Session exists, proceed with login")
         // Session exists, proceed with login
-        const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
-        if (profile) {
-          // Update active order with profile defaults
-          if (this.activeOrder) {
-            this.activeOrder.selectedPriceList = { name: profile.selling_price_list || profile.price_list }
-            this.activeOrder.priceListSearch = profile.selling_price_list || profile.price_list
-          }
-          this.showLoginModal = false
-          this.setOpeningTime()
-          // Start loading master data for the profile
-          this.loadMasterData(profile)
+        // Update active order with profile defaults
+        if (this.activeOrder) {
+          this.activeOrder.selectedPriceList = { name: profile.selling_price_list || profile.price_list }
+          this.activeOrder.priceListSearch = profile.selling_price_list || profile.price_list
         }
+        this.showLoginModal = false
+        this.setOpeningTime()
+        // Start loading master data for the profile
+        this.loadMasterData(profile)
       }).catch((err) => {
         this.loginError = 'An error occurred during session validation.'
         console.error(err)
@@ -1386,11 +1405,18 @@ export default {
       this.createSessionResource.submit({
         company: this.loginData.company,
         pos_profile: this.loginData.profile,
-        balance_details: JSON.stringify(this.denominations)
+        denominations: JSON.stringify(this.denominations)
       }).then((data) => {
         this.showDenominations = false
         this.showLoginModal = false
-        this.setOpeningTime()
+        
+        // Use the posting_time from the newly created session
+        if (data && data.posting_time) {
+          this.openingTime = data.posting_time.substring(0, 5)
+        } else {
+          this.setOpeningTime()
+        }
+        
         // Now load master data as session is created
         this.loadMasterData(profile)
       })
@@ -1414,6 +1440,12 @@ export default {
       this.customers = []
       this.priceLists = []
       this.items = []
+
+      // 0. Fetch Opening Entry to get session time
+      this.openingEntryResource.fetch({
+        company: this.loginData.company,
+        pos_profile: profile.name
+      })
 
       // 1. Fetch Items filtered by warehouse and price list
       this.itemsResource.fetch({
