@@ -527,6 +527,67 @@
       </div>
     </div>
 
+    <!-- Payment Progress Popup -->
+    <div v-if="showPaymentProgressModal" class="fixed inset-0 z-[300] flex items-center justify-center bg-gray-900/60 backdrop-blur-md">
+      <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full mx-4 text-center border border-gray-100 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-[#39ADA8]"></div>
+        
+        <div class="mb-6 flex flex-col items-center">
+          <div class="relative w-24 h-24 mb-4">
+            <!-- Background Circle -->
+            <svg class="w-full h-full transform -rotate-90">
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                stroke="currentColor"
+                stroke-width="8"
+                fill="transparent"
+                class="text-gray-100"
+              />
+              <!-- Progress/Done Circle -->
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                stroke="currentColor"
+                stroke-width="8"
+                fill="transparent"
+                stroke-dasharray="251.2"
+                :stroke-dashoffset="paymentProcessingStatus === 'done' ? '0' : '180'"
+                :class="[
+                  'transition-all duration-700 ease-in-out',
+                  paymentProcessingStatus === 'done' ? 'text-green-500' : 'text-[#39ADA8] animate-[spin_2s_linear_infinite]'
+                ]"
+              />
+            </svg>
+            <!-- Center Icon -->
+            <div class="absolute inset-0 flex items-center justify-center">
+              <Transition
+                enter-active-class="transition duration-500 delay-300"
+                enter-from-class="scale-0 opacity-0"
+                enter-to-class="scale-100 opacity-100"
+              >
+                <div v-if="paymentProcessingStatus === 'done'" class="text-green-500">
+                  <FeatherIcon name="check" class="w-10 h-10" stroke-width="4" />
+                </div>
+                <div v-else class="text-[#39ADA8]">
+                  <FeatherIcon name="loader" class="w-8 h-8 animate-spin" stroke-width="3" />
+                </div>
+              </Transition>
+            </div>
+          </div>
+          
+          <h2 class="text-xl font-black text-gray-900">
+            {{ paymentProcessingStatus === 'done' ? 'Payment Successful' : 'Processing Payment' }}
+          </h2>
+          <p class="text-xs text-gray-500 mt-2 font-medium">
+            {{ paymentProcessingStatus === 'done' ? 'Your transaction has been recorded' : 'Please wait while we finalize your payment' }}
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- Sidebar Overlay & Menu Logic -->
     <Transition enter-active-class="transition-opacity duration-300 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition-opacity duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
       <div v-if="showSidebar" @click="showSidebar = false" class="fixed inset-0 bg-gray-900/20 backdrop-blur-[2px] z-[70]"></div>
@@ -890,6 +951,8 @@ export default {
       showLoginModal: false, // Wait for master data sync first
       showDataLoadingModal: false, // New modal for loading master data after profile selection
       showPaymentPopup: false,
+      showPaymentProgressModal: false,
+      paymentProcessingStatus: 'processing', // 'processing' or 'done'
       showAlert: false,
       alertMessage: '',
       paymentData: {
@@ -1377,6 +1440,7 @@ export default {
             selling: 1,
             custom_company: this.loginData.company
         },
+        order_by: 'name ASC',
         limit_page_length: 100
       })
     },
@@ -1771,27 +1835,48 @@ export default {
       }
 
       try {
-        await this.processPaymentResource.submit({
+        const originalAmount = this.paymentAmount
+        this.showPaymentProgressModal = true
+        this.paymentProcessingStatus = 'processing'
+
+        const response = await this.processPaymentResource.submit({
           party_type: this.entityMode === 'customer' ? 'Customer' : 'Supplier',
           party: party.name,
           amount: this.paymentAmount,
           invoices: JSON.stringify(this.selectedInvoiceNames)
         })
 
-        this.alertMessage = `Successfully processed payment of ${this.formatCurrency(this.paymentAmount)}`
-        this.showAlert = true
-        
-        // Reset and refresh
-        this.paymentAmount = 0
-        this.selectedInvoiceNames = []
-        
-        if (this.entityMode === 'customer') {
-          this.customerInvoicesResource.fetch({ customer: party.name })
-        } else {
-          this.supplierInvoicesResource.fetch({ supplier: party.name })
-        }
+        // Success! Set to done
+        this.paymentProcessingStatus = 'done'
+
+        // Calculate total outstanding of selected invoices
+        const totalPaidToInvoices = this.invoices
+          .filter(inv => this.selectedInvoiceNames.includes(inv.name))
+          .reduce((sum, inv) => sum + Number(inv.outstanding_amount || 0), 0)
+
+        // Wait a bit to show the "Done" state
+        setTimeout(() => {
+          this.showPaymentProgressModal = false
+          
+          // Update paymentAmount with the change (e.g. 15 - 12 = 3)
+          if (Number(originalAmount) > totalPaidToInvoices) {
+            this.paymentAmount = Number((Number(originalAmount) - totalPaidToInvoices).toFixed(2))
+          } else {
+            this.paymentAmount = 0
+          }
+          
+          this.selectedInvoiceNames = []
+          
+          if (this.entityMode === 'customer') {
+            this.customerInvoicesResource.fetch({ customer: party.name })
+          } else {
+            this.supplierInvoicesResource.fetch({ supplier: party.name })
+          }
+        }, 1500)
+
       } catch (err) {
         console.error('Payment failed:', err)
+        this.showPaymentProgressModal = false
         this.alertMessage = 'Failed to process payment. Please try again.'
         this.showAlert = true
       }

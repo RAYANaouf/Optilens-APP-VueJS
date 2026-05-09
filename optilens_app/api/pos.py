@@ -15,6 +15,7 @@ def get_pos_suppliers(company):
         filters={
             "custom_company": company
         },
+        order_by="supplier_name ASC",
         limit_page_length=3000
     )
     return suppliers
@@ -35,6 +36,7 @@ def get_pos_customers(company):
             ["Customer Company", "company", "=", company]
         ],
         distinct=True,
+        order_by="customer_name ASC",
         limit_page_length=3000
     )
     return customers
