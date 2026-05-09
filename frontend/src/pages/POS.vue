@@ -1808,15 +1808,19 @@ export default {
       }
     },
     paySingleInvoice(invoice) {
-      // Set payment amount to this specific invoice's outstanding
-      this.paymentAmount = invoice.outstanding_amount
+      if (!this.paymentAmount || this.paymentAmount <= 0) {
+        this.alertMessage = 'Please enter a payment amount first'
+        this.showAlert = true
+        return
+      }
+
       // Select only this invoice for context
       this.selectedInvoiceNames = [invoice.name]
       
-      console.log('Initiating payment for single invoice:', invoice.name, 'Amount:', this.paymentAmount)
-      // You can either trigger processPayment immediately or let the user review
-      // For now, let's just highlight it and let the user click the main Pay button
-      // Or we can call processPayment() directly if you prefer
+      console.log('Initiating payment for single invoice:', invoice.name, 'Using Amount:', this.paymentAmount)
+      
+      // Directly call processPayment
+      this.processPayment()
     },
     async processPayment() {
       if (!this.paymentAmount || this.paymentAmount <= 0) {
