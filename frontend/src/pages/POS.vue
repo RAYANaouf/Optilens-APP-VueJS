@@ -17,7 +17,9 @@
               <FeatherIcon name="user" class="w-4 h-4 text-black" stroke-width="3" />
               <span class="text-xs font-black text-black tracking-tight uppercase">{{ loginData.profile }}</span>
               <div v-if="openingTime" class="flex items-center gap-1.5 ml-2 pl-3 border-l border-black/10">
-                <FeatherIcon name="clock" class="w-3.5 h-3.5 text-black" stroke-width="2.5" />
+                <FeatherIcon name="calendar" class="w-3.5 h-3.5 text-black" stroke-width="2.5" />
+                <span class="text-[10px] font-black text-black">{{ openingDate }}</span>
+                <FeatherIcon name="clock" class="w-3.5 h-3.5 text-black ml-1" stroke-width="2.5" />
                 <span class="text-xs font-black text-black">{{ openingTime }}</span>
               </div>
             </div>
@@ -936,6 +938,7 @@ export default {
       },
       loginError: '',
       openingTime: null,
+      openingDate: null,
       isOnline: navigator.onLine,
       toSyncCount: 0,
       showDenominations: false,
@@ -1015,10 +1018,10 @@ export default {
         onSuccess: (data) => {
           if (data && data.period_start_date) {
             // period_start_date is a datetime string like "2023-10-27 12:06:45"
-            // We extract the HH:mm part
-            const timePart = data.period_start_date.split(' ')[1]
-            if (timePart) {
-              this.openingTime = timePart.substring(0, 5)
+            const parts = data.period_start_date.split(' ')
+            if (parts.length === 2) {
+              this.openingDate = parts[0] // "2023-10-27"
+              this.openingTime = parts[1].substring(0, 5) // "12:06"
             }
           }
           if (this.isMasterDataLoaded) this.showDataLoadingModal = false
@@ -1387,9 +1390,10 @@ export default {
         
         // Use the period_start_date from the newly created session
         if (data && data.period_start_date) {
-          const timePart = data.period_start_date.split(' ')[1]
-          if (timePart) {
-            this.openingTime = timePart.substring(0, 5)
+          const parts = data.period_start_date.split(' ')
+          if (parts.length === 2) {
+            this.openingDate = parts[0]
+            this.openingTime = parts[1].substring(0, 5)
           }
         } else {
           this.setOpeningTime()
@@ -1457,6 +1461,7 @@ export default {
     setOpeningTime() {
       const now = new Date()
       this.openingTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      this.openingDate = now.toISOString().split('T')[0]
     },
     async syncData() {
       if (!this.isOnline) return
