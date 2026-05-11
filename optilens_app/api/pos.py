@@ -75,11 +75,19 @@ def get_pos_data(company=None, pos_profile=None):
 
     # Enrich profiles with default payment method from the 'payments' child table
     for profile in profiles:
+        # Fetch the default payment method
         default_payment = frappe.db.get_value("POS Payment Method",
             {"parent": profile.name, "default": 1},
             "mode_of_payment"
         )
         profile["default_payment_method"] = default_payment or "Cash"
+
+        # Fetch all allowed payment methods for this profile
+        payments = frappe.get_all("POS Payment Method",
+            filters={"parent": profile.name},
+            fields=["mode_of_payment", "default"]
+        )
+        profile["payment_methods"] = payments
 
     # Check for active POS Opening Entry
     filters = {
@@ -297,8 +305,13 @@ def get_supplier_invoices(supplier, company=None):
 @frappe.whitelist()
 def sync_offline_orders(orders):
     import json
-    orders = json.loads(orders)
+    if isinstance(orders, str):
+        orders = json.loads(orders)
+
+
+
     synced_count = 0
+    frappe.log_error(title="POS Sync Debug", message=f"Attempting to sync {len(orders)} orders")
 
     for order in orders:
         try:
@@ -309,6 +322,14 @@ def sync_offline_orders(orders):
             doc.company = order.get("company")
             doc.is_pos = 1
             doc.update_stock = 1
+
+            # Map datetime correctly
+            completed_at = order.get("completed_at")
+            if completed_at:
+                doc.posting_date = completed_at.split('T')[0]
+                doc.posting_time = completed_at.split('T')[1].split('.')[0]
+            else:
+                frappe.throw("The posting date/time is required")
 
             # Add Items
             for item in order.get("cart", []):
@@ -321,17 +342,27 @@ def sync_offline_orders(orders):
 
             # Handle Payments
             payment = order.get("payment", {})
-            if payment.get("method") == "Cash" and payment.get("amount") > 0:
-                doc.append("payments", {
-                    "mode_of_payment": "Cash",
-                    "amount": payment.get("amount")
-                })
+            amount = float(payment.get("amount") or 0)
+            
+            # If the payment amount is > 0, we use that. 
+            # If it's a "Later" payment (0 amount), we still need to provide a MOP for POS Invoice validation
+            mop = payment.get("method")
+            if not mop or mop == "Later":
+                # Fallback to profile default
+                mop = frappe.db.get_value("POS Payment Method", {"parent": doc.pos_profile, "default": 1}, "mode_of_payment") or frappe.throw("No default payment method found for POS Profile")
 
-            doc.insert()
+            doc.append("payments", {
+                "mode_of_payment": mop,
+                "amount": amount
+            })
+
+            doc.insert(ignore_permissions=True)
             doc.submit()
             synced_count += 1
+            frappe.db.commit()
 
         except Exception:
+            frappe.db.rollback()
             frappe.log_error(title="POS Sync Error", message=frappe.get_traceback())
             continue
 

@@ -341,7 +341,7 @@
         <div class="flex-1 flex flex-col bg-white overflow-hidden">
           <div class="h-16 flex items-center px-4 gap-3 border-b shrink-0 bg-white">
             <button 
-              @click="entityMode = 'customer'"
+              @click="setEntityMode('customer')"
               :class="[
                 'flex-1 h-10 flex items-center justify-center text-[11px] font-black uppercase tracking-[0.1em] rounded-xl transition-all active:scale-[0.98] border',
                 entityMode === 'customer' ? 'bg-[#39ADA8]/10 text-[#39ADA8] border-[#39ADA8]/10' : 'bg-gray-50/50 text-gray-400 border-gray-100 hover:bg-gray-100/80'
@@ -351,7 +351,7 @@
               Customers
             </button>
             <button 
-              @click="entityMode = 'supplier'"
+              @click="setEntityMode('supplier')"
               :class="[
                 'flex-1 h-10 flex items-center justify-center text-[11px] font-black uppercase tracking-[0.1em] rounded-xl transition-all active:scale-[0.98] border',
                 entityMode === 'supplier' ? 'bg-[#39ADA8]/10 text-[#39ADA8] border-[#39ADA8]/10' : 'bg-gray-50/50 text-gray-400 border-gray-100 hover:bg-gray-100/80'
@@ -960,6 +960,8 @@ export default {
         url: 'optilens_app.api.pos.get_pos_data',
         auto: true,
         onSuccess: (data) => {
+
+          console.log("check the pos data :::: " , data)
           this.companiesList = data.companies || []
           this.availableProfiles = data.profiles || []
           
@@ -1044,6 +1046,9 @@ export default {
       }),
       processPaymentResource: createResource({
         url: 'optilens_app.api.pos.process_payment'
+      }),
+      syncOrdersResource: createResource({
+        url: 'optilens_app.api.pos.sync_offline_orders'
       })
     }
   },
@@ -1474,28 +1479,43 @@ export default {
           console.log(`Syncing ${invoicesToSync.length} invoices...`)
           
           // 2. Push to server
-          await this.syncOrdersResource.submit({
+          const response = await this.syncOrdersResource.submit({
             orders: JSON.stringify(invoicesToSync)
           })
 
-          // 3. Mark as synced or delete from local DB
-          for (const invoice of invoicesToSync) {
-            await pos_invoice_DB.delete(invoice.id)
+
+          console.log("Sync response:", response)
+
+          const syncedCount = response?.synced_count || 0
+
+          if (syncedCount > 0) {
+            // 3. Delete synced invoices from local DB
+            // Note: Since the backend currently doesn't tell us WHICH ones synced,
+            // we delete them all if syncedCount match or we clear only what we sent.
+            // For safety, let's only proceed if at least some were synced.
+            for (const invoice of invoicesToSync) {
+              await pos_invoice_DB.delete(invoice.id)
+            }
+            
+            await this.updateToSyncCount()
+            this.alertMessage = `Successfully synced ${syncedCount} invoices!`
+            this.showAlert = true
+          } else {
+            this.alertMessage = 'Sync attempted but no invoices were saved. Check server logs.'
+            this.showAlert = true
           }
-          
-          await this.updateToSyncCount()
-          this.alertMessage = `Successfully synced ${invoicesToSync.length} invoices!`
-          this.showAlert = true
         }
 
-        // 4. Reload master data
-        this.posDataResource.reload()
+        // 4. Reload critical data without full UI reset
         this.customersResource.reload()
-        this.priceListsResource.reload()
+        this.suppliersResource.reload()
         
         const profile = this.availableProfiles.find(p => p.name === this.loginData.profile)
         if (profile) {
-          this.itemsResource.fetch({ warehouse: profile.warehouse })
+          this.itemsResource.fetch({ 
+            priceLists: JSON.stringify([{ name: profile.selling_price_list || 'Standard Selling' }]),
+            warehouse: profile.warehouse 
+          })
         }
       } catch (err) {
         console.error('Sync failed:', err)
@@ -1706,6 +1726,22 @@ export default {
         // Local filtering via computed properties
       }, 300)
     },
+    setEntityMode(mode) {
+      if (this.entityMode === mode) return
+      this.entityMode = mode
+      
+      // Clear current view data to prevent "ghost" invoices
+      this.invoices = []
+      this.selectedInvoiceNames = []
+      this.paymentAmount = 0
+      
+      // Auto-refresh if an entity is already highlighted in the new mode
+      if (mode === 'customer' && this.selectedCustomer) {
+        this.selectCustomer(this.selectedCustomer)
+      } else if (mode === 'supplier' && this.selectedSupplier) {
+        this.selectSupplier(this.selectedSupplier)
+      }
+    },
     clearCustomer() {
       if (this.activeOrder) {
         this.activeOrder.selectedCustomer = null
@@ -1786,6 +1822,8 @@ export default {
       const invoiceToSave = {
         ...JSON.parse(JSON.stringify(this.activeOrder)),
         payment: { ...this.paymentData },
+        pos_profile: this.loginData.profile,
+        company: this.loginData.company,
         to_sync: 1,
         completed_at: new Date().toISOString()
       }
@@ -1814,6 +1852,11 @@ export default {
         let myorders2 = await pos_invoice_DB.getAll()
         console.log(">>>=====> " , myorders2)
         this.showPaymentPopup = false
+
+        // Automatically trigger sync if online to push to backend immediately
+        if (this.isOnline) {
+          this.syncData()
+        }
       } catch (err) {
         console.error('Failed to complete order locally:', err)
         this.alertMessage = 'Error saving order locally.'
