@@ -2,8 +2,8 @@ import frappe
 
 
 @frappe.whitelist()
-def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None):
-    """Fetch stock matrix data (SPH vs CLY) based on filters"""
+def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None, matrix_type="+/+"):
+    """Fetch stock matrix data (SPH vs CLY) based on filters and sign type"""
     try:
         if isinstance(companies, str):
             companies = frappe.parse_json(companies)
@@ -14,14 +14,32 @@ def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None):
         if isinstance(brands, str):
             brands = frappe.parse_json(brands)
 
-        filters = {"disabled": 0}
+        # Parse matrix_type signs
+        # Expected formats: "+/+", "-/-", "+/-", "-/+"
+        sph_sign = matrix_type.split('/')[0]
+        cyl_sign = matrix_type.split('/')[1]
+
+        filters = {
+            "disabled": 0,
+            "custom_sph_sign": sph_sign,
+            "custom_cly_sign": cyl_sign
+        }
+
         if groups:
             filters["item_group"] = ["in", groups]
         if brands:
             filters["brand"] = ["in", brands]
 
-        # Fetch items that have SPH and CYL attributes or naming convention
-        items = frappe.get_all("Item", filters=filters, fields=["name", "item_name", "custom_sph", "custom_cyl"])
+        # Fetch items that match the signs and filters
+        items = frappe.get_all("Item",
+            filters=filters,
+            fields=["name", "item_name", "custom_sph", "custom_cyl", "custom_sph_sign", "custom_cly_sign"]
+        )
+
+        frappe.log_error(
+            title="POS Sync Debug",
+            message=f"Filters: {filters}\nFound {len(items)} items\nFirst few items: {items[:3] if items else 'None'}"
+        )
 
         if not items:
             return {}
@@ -34,12 +52,14 @@ def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None):
 
         bins = frappe.get_all("Bin", filters=bin_filters, fields=["item_code", "actual_qty", "warehouse"])
 
-        # Map to matrix format { "sph-cyl": { "qty": total, "items": [{ name, qty, warehouse, company }] } }
+        # Map to matrix format { "sph-cyl": { "qty": total, "items": [...] } }
         matrix_data = {}
         for item in items:
             sph = item.get("custom_sph")
             cyl = item.get("custom_cyl")
+
             if sph is not None and cyl is not None:
+                # Use formatted key for frontend consistency
                 key = f"{float(sph):.2f}-{float(cyl):.2f}"
 
                 # Initialize key if not exists
@@ -61,6 +81,11 @@ def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None):
                     })
 
                 matrix_data[key]["qty"] += item_total_qty
+
+
+        frappe.logger().info(f"matrix_data: {matrix_data}")
+        frappe.errprint(f"matrix_data: {matrix_data}")
+        frappe.log_error(title="get_stock_matrix error", message=f"matrix_data: {matrix_data}")
 
         return matrix_data
     except Exception as e:

@@ -227,26 +227,46 @@
       <!-- Lens Prescription Matrix -->
       <div class="bg-white rounded-xl shadow-sm border">
         <div class="p-4">
-          <div class="flex items-center gap-4 mb-4">
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-600">SPH Range:</label>
-              <select v-model="sphRange" class="border rounded px-2 py-1 text-sm">
-                <option value="full">0.00 to 20.00</option>
-                <option value="half">0.00 to 10.00</option>
-                <option value="quarter">0.00 to 5.00</option>
-              </select>
-            </div>
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-600">CLY Range:</label>
-              <select v-model="clyRange" class="border rounded px-2 py-1 text-sm">
-                <option value="full">0.00 to 20.00</option>
-                <option value="half">0.00 to 10.00</option>
-                <option value="quarter">0.00 to 5.00</option>
-              </select>
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-6">
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Signs:</label>
+                <div class="flex items-center bg-gray-100 p-0.5 rounded-lg border">
+                  <button 
+                    v-for="type in ['+/+', '-/-', '+/-', '-/+']" 
+                    :key="type"
+                    @click="matrixType = type"
+                    :class="[
+                      'px-3 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap',
+                      matrixType === type ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    ]"
+                  >
+                    {{ type }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">SPH:</label>
+                <select v-model="sphRange" class="border rounded-lg px-2 py-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                  <option value="full">20.00</option>
+                  <option value="half">10.00</option>
+                  <option value="quarter">5.00</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">CLY:</label>
+                <select v-model="clyRange" class="border rounded-lg px-2 py-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                  <option value="full">20.00</option>
+                  <option value="half">10.00</option>
+                  <option value="quarter">5.00</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="overflow-auto max-h-[600px] border rounded-lg">
+          <div class="overflow-auto max-h-[600px] border rounded-lg shadow-inner">
             <table class="w-full text-sm">
               <thead class="bg-gray-50 sticky top-0 z-10">
                 <tr>
@@ -350,6 +370,7 @@ export default {
     return {
       sphRange: 'half',
       clyRange: 'half',
+      matrixType: '+/+', // New matrix sign filter
       matrix: {},
       matrixData: {},
       saving: false,
@@ -388,6 +409,7 @@ export default {
             warehouses: this.filters.warehouses,
             groups: this.filters.groups,
             brands: this.filters.brands,
+            matrix_type: this.matrixType, // Pass the sign type to backend
           }
         },
         onSuccess: (data) => {
