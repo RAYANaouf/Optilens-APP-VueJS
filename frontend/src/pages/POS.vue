@@ -1096,6 +1096,9 @@ export default {
       const order = this.orders.find(o => o.id === this.activeOrderId)
       return order || this.orders[0]
     },
+    currentProfile() {
+      return this.availableProfiles.find(p => p.name === this.loginData.profile)
+    },
     filteredEntityCustomers() {
       if (!this.entitySearchQuery) return this.customers
       const q = this.entitySearchQuery.toLowerCase()
@@ -1824,6 +1827,7 @@ export default {
         payment: { ...this.paymentData },
         pos_profile: this.loginData.profile,
         company: this.loginData.company,
+        default_payment_method: this.currentProfile?.default_payment_method,
         to_sync: 1,
         completed_at: new Date().toISOString()
       }

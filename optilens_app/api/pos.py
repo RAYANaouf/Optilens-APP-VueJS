@@ -315,12 +315,17 @@ def sync_offline_orders(orders):
 
     for order in orders:
         try:
+
+            frappe.log_error(title="POS Sync Debug", message=f"Processing order: {order}")
+
+
+
             # Create POS Invoice
-            doc = frappe.new_doc("POS Invoice")
-            doc.customer = order.get("selectedCustomer", {}).get("name")
-            doc.pos_profile = order.get("pos_profile")
-            doc.company = order.get("company")
-            doc.is_pos = 1
+            doc              = frappe.new_doc("POS Invoice")
+            doc.customer     = order.get("selectedCustomer", {}).get("name")
+            doc.pos_profile  = order.get("pos_profile")
+            doc.company      = order.get("company")
+            doc.is_pos       = 1
             doc.update_stock = 1
 
             # Map datetime correctly
@@ -340,24 +345,19 @@ def sync_offline_orders(orders):
                     "warehouse": item.get("warehouse") or frappe.db.get_value("POS Profile", doc.pos_profile, "warehouse")
                 })
 
+            
             # Handle Payments
             payment = order.get("payment", {})
-            amount = float(payment.get("amount") or 0)
-            
-            # If the payment amount is > 0, we use that. 
-            # If it's a "Later" payment (0 amount), we still need to provide a MOP for POS Invoice validation
             mop = payment.get("method")
-            if not mop or mop == "Later":
-                # Fallback to profile default
-                mop = frappe.db.get_value("POS Payment Method", {"parent": doc.pos_profile, "default": 1}, "mode_of_payment") or frappe.throw("No default payment method found for POS Profile")
-
+            amount = float(payment.get("amount") or 0)
             doc.append("payments", {
                 "mode_of_payment": mop,
                 "amount": amount
             })
+            frappe.log_error(title="POS Sync Debug", message=f"Payments appended: {mop} - {amount}")
 
             doc.insert(ignore_permissions=True)
-            doc.submit()
+            #doc.submit()
             synced_count += 1
             frappe.db.commit()
 

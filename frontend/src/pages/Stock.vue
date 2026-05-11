@@ -244,16 +244,13 @@
                   <td 
                     v-for="cly in clyValues" 
                     :key="`${sph}-${cly}`"
-                    class="p-1 border"
+                    :class="[
+                      'p-1 border cursor-pointer transition-colors text-center text-xs font-medium',
+                      (matrix[`${sph}-${cly}`]?.qty || 0) <= 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                    ]"
+                    @click="showCellDetails(sph, cly)"
                   >
-                    <input 
-                      v-model="matrix[`${sph}-${cly}`]"
-                      type="number"
-                      min="0"
-                      class="w-full px-1 py-1 text-center text-xs border-0 focus:ring-1 focus:ring-blue-500 rounded"
-                      placeholder="0"
-                      @change="markDirty(sph, cly)"
-                    />
+                    {{ matrix[`${sph}-${cly}`]?.qty || 0 }}
                   </td>
                 </tr>
               </tbody>
@@ -262,26 +259,78 @@
         </div>
       </div>
     </div>
+
+    <!-- Cell Details Modal -->
+    <Dialog
+      v-model="showDetailsModal"
+      :options="{
+        title: `Stock Details (SPH ${selectedCell?.sph} \\ CLY ${selectedCell?.cly})`,
+        size: 'xl'
+      }"
+    >
+      <template #body-content>
+        <div v-if="selectedCell?.items?.length > 0" class="overflow-hidden rounded-lg border">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600 font-medium border-b">
+              <tr>
+                <th class="p-3">Item Name</th>
+                <th class="p-3">Company</th>
+                <th class="p-3">Warehouse</th>
+                <th class="p-3 text-right">Qty</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              <tr 
+                v-for="(item, idx) in selectedCell.items" 
+                :key="idx"
+                class="hover:bg-gray-50 transition-colors"
+              >
+                <td class="p-3 font-medium text-gray-900">{{ item.item_name }}</td>
+                <td class="p-3 text-gray-600">{{ item.company }}</td>
+                <td class="p-3 text-gray-600 text-xs">{{ item.warehouse }}</td>
+                <td :class="['p-3 text-right font-bold', item.qty < 0 ? 'text-red-600' : 'text-gray-900']">
+                  {{ item.qty }}
+                </td>
+              </tr>
+            </tbody>
+            <tfoot class="bg-gray-50 border-t font-black">
+              <tr>
+                <td colspan="3" class="p-3 text-right text-gray-700">Total Selection</td>
+                <td class="p-3 text-right text-blue-600">{{ selectedCell.qty }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div v-else class="py-12 text-center">
+          <FeatherIcon name="package" class="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p class="text-gray-500 font-medium">No stock found for this prescription combination.</p>
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script>
-import { Button, FeatherIcon } from 'frappe-ui'
+import { Button, FeatherIcon, Dialog } from 'frappe-ui'
 
 export default {
   name: 'Stock',
   components: {
     Button,
     FeatherIcon,
+    Dialog,
   },
   data() {
     return {
       sphRange: 'half',
       clyRange: 'half',
       matrix: {},
+      matrixData: {},
       saving: false,
       dirtyCells: new Set(),
       sidebarOpen: false,
+      showDetailsModal: false,
+      selectedCell: null,
       filters: {
         companies: [],
         warehouses: [],
@@ -297,6 +346,28 @@ export default {
     }
   },
   resources: {
+    stockMatrix() {
+      return {
+        url: 'optilens_app.api.dashboard.get_stock_matrix',
+        auto: false,
+        makeParams: () => {
+          return {
+            companies: this.filters.companies,
+            warehouses: this.filters.warehouses,
+            groups: this.filters.groups,
+            brands: this.filters.brands,
+          }
+        },
+        onSuccess: (data) => {
+          this.matrixData = data || {}
+          // Fill the editable matrix with these values
+          this.matrix = { ...this.matrixData }
+        },
+        onError(error) {
+          console.error('Stock Matrix error:', error)
+        },
+      }
+    },
     filterOptions() {
       return {
         url: 'optilens_app.api.dashboard.get_stock_filter_options',
@@ -397,8 +468,17 @@ export default {
     },
     applyFilters() {
       console.log('Applying filters:', this.filters)
-      // TODO: Fetch matrix data based on filters
+      this.$resources.stockMatrix.fetch()
       this.closeSidebar()
+    },
+    showCellDetails(sph, cly) {
+      const cell = this.matrix[`${sph}-${cly}`] || { qty: 0, items: [] }
+      this.selectedCell = {
+        sph,
+        cly,
+        ...cell
+      }
+      this.showDetailsModal = true
     },
     async saveMatrix() {
       this.saving = true
