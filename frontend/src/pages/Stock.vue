@@ -45,17 +45,23 @@
             />
           </button>
           <div v-show="!collapsed.company" class="rounded-lg p-2 space-y-1 transition-all">
+            <input
+              v-model="searchQueries.company"
+              type="text"
+              placeholder="Search Company..."
+              class="w-full mb-2 p-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
             <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer font-medium">
               <input
                 type="checkbox"
-                :checked="filters.companies.length === $resources.filterOptions.data.companies.length"
+                :checked="filters.companies.length === $resources.filterOptions.data.companies.length && $resources.filterOptions.data.companies.length > 0"
                 @change="toggleAllCompanies"
                 class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
               <span class="text-sm text-gray-700">All</span>
             </label>
             <label
-              v-for="company in $resources.filterOptions.data.companies"
+              v-for="company in filteredOptions.companies"
               :key="company"
               class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
             >
@@ -86,28 +92,36 @@
             <p v-if="filters.companies.length === 0" class="text-sm text-gray-500 italic p-1">
               Select a company first
             </p>
-            <label v-else class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer font-medium">
+            <template v-else>
               <input
-                type="checkbox"
-                :checked="filters.warehouses.length === $resources.filterOptions.data.warehouses.length"
-                @change="toggleAllWarehouses"
-                class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                v-model="searchQueries.warehouse"
+                type="text"
+                placeholder="Search Warehouse..."
+                class="w-full mb-2 p-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-              <span class="text-sm text-gray-700">All</span>
-            </label>
-            <label
-              v-for="warehouse in $resources.filterOptions.data.warehouses"
-              :key="warehouse"
-              class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                v-model="filters.warehouses"
-                :value="warehouse"
-                class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-              />
-              <span class="text-sm text-gray-700">{{ warehouse }}</span>
-            </label>
+              <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer font-medium">
+                <input
+                  type="checkbox"
+                  :checked="filters.warehouses.length === $resources.filterOptions.data.warehouses.length && $resources.filterOptions.data.warehouses.length > 0"
+                  @change="toggleAllWarehouses"
+                  class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span class="text-sm text-gray-700">All</span>
+              </label>
+              <label
+                v-for="warehouse in filteredOptions.warehouses"
+                :key="warehouse"
+                class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  v-model="filters.warehouses"
+                  :value="warehouse"
+                  class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span class="text-sm text-gray-700">{{ warehouse }}</span>
+              </label>
+            </template>
           </div>
         </div>
 
@@ -124,17 +138,23 @@
             />
           </button>
           <div v-show="!collapsed.group" class="rounded-lg p-2 space-y-1 transition-all">
+            <input
+              v-model="searchQueries.group"
+              type="text"
+              placeholder="Search Group..."
+              class="w-full mb-2 p-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
             <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer font-medium">
               <input
                 type="checkbox"
-                :checked="filters.groups.length === $resources.filterOptions.data.groups.length"
+                :checked="filters.groups.length === $resources.filterOptions.data.groups.length && $resources.filterOptions.data.groups.length > 0"
                 @change="toggleAllGroups"
                 class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
               <span class="text-sm text-gray-700">All</span>
             </label>
             <label
-              v-for="group in $resources.filterOptions.data.groups"
+              v-for="group in filteredOptions.groups"
               :key="group"
               class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
             >
@@ -162,17 +182,23 @@
             />
           </button>
           <div v-show="!collapsed.brand" class="rounded-lg p-2 space-y-1 transition-all">
+            <input
+              v-model="searchQueries.brand"
+              type="text"
+              placeholder="Search Brand..."
+              class="w-full mb-2 p-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
             <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer font-medium">
               <input
                 type="checkbox"
-                :checked="filters.brands.length === $resources.filterOptions.data.brands.length"
+                :checked="filters.brands.length === $resources.filterOptions.data.brands.length && $resources.filterOptions.data.brands.length > 0"
                 @change="toggleAllBrands"
                 class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
               <span class="text-sm text-gray-700">All</span>
             </label>
             <label
-              v-for="brand in $resources.filterOptions.data.brands"
+              v-for="brand in filteredOptions.brands"
               :key="brand"
               class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
             >
@@ -331,6 +357,12 @@ export default {
       sidebarOpen: false,
       showDetailsModal: false,
       selectedCell: null,
+      searchQueries: {
+        company: '',
+        warehouse: '',
+        group: '',
+        brand: '',
+      },
       filters: {
         companies: [],
         warehouses: [],
@@ -412,6 +444,15 @@ export default {
              this.filters.warehouses.length +
              this.filters.groups.length +
              this.filters.brands.length
+    },
+    filteredOptions() {
+      const options = this.$resources.filterOptions.data || { companies: [], warehouses: [], groups: [], brands: [] }
+      return {
+        companies: options.companies.filter(i => i.toLowerCase().includes(this.searchQueries.company.toLowerCase())),
+        warehouses: options.warehouses.filter(i => i.toLowerCase().includes(this.searchQueries.warehouse.toLowerCase())),
+        groups: options.groups.filter(i => i.toLowerCase().includes(this.searchQueries.group.toLowerCase())),
+        brands: options.brands.filter(i => i.toLowerCase().includes(this.searchQueries.brand.toLowerCase())),
+      }
     },
   },
   methods: {
