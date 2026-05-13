@@ -199,7 +199,7 @@ window.start_stock_level_app = function() {
 					this.filters.warehouses.forEach(wh => {
 						newItem.balances[wh] = 0;
 					});
-					this.stockData.unshift(newItem);
+					this.stockData.push(newItem);
 					this.activeSearchRow = newItem;
 				},
 
@@ -211,7 +211,19 @@ window.start_stock_level_app = function() {
 				},
 
 				async onItemSearchInput(item) {
-					if (!item.item_code || item.item_code.length < 2) {
+					// If field is manually cleared by user
+					if (!item.item_code) {
+						item.item_name = "";
+						item.last_valid_code = "";
+						this.filters.warehouses.forEach(wh => {
+							item.balances[wh] = 0;
+						});
+						item.total = 0;
+						this.searchResults = [];
+						return;
+					}
+
+					if (item.item_code.length < 2) {
 						this.searchResults = [];
 						return;
 					}
@@ -252,11 +264,68 @@ window.start_stock_level_app = function() {
 					}
 				},
 
-				selectItem(row, selected) {
+				async selectItem(row, selected) {
 					row.item_code = selected.name;
 					row.item_name = selected.item_name;
+					row.last_valid_code = selected.name; // Store valid selection
 					this.activeSearchRow = null;
 					this.searchResults = [];
+
+					// Refresh only this specific row's stock data
+					await this.fetchRowStock(row);
+				},
+
+				async fetchRowStock(row) {
+					if (!row.item_code || this.filters.warehouses.length === 0) return;
+
+					try {
+						const response = await frappe.call({
+							method: 'optilens_app.api.stock_level_page.get_warehouse_stock_levels',
+							args: {
+								company: this.filters.companies[0],
+								warehouses: this.filters.warehouses,
+								item_groups: [], // Not needed for single item
+								search: row.item_code // Use item code as search to get exact item
+							}
+						});
+
+						if (response.message && response.message.length > 0) {
+							const freshData = response.message[0];
+							row.balances = freshData.balances || {};
+							row.total = freshData.total || 0;
+							row.item_name = freshData.item_name;
+							row.is_new = false; // It's now a loaded record
+						}
+					} catch (e) {
+						console.error('Error fetching row stock:', e);
+					}
+				},
+
+				onItemBlur(item) {
+					// Delay blur to allow click on search results to fire first
+					setTimeout(() => {
+						if (this.activeSearchRow === item) {
+							// If no valid selection was made or field is cleared, revert to last valid or empty
+							if (!item.last_valid_code || item.item_code !== item.last_valid_code) {
+								const wasValid = !!item.last_valid_code;
+								item.item_code = item.last_valid_code || "";
+								
+								// If it's now empty, clear the balances too
+								if (!item.item_code) {
+									item.item_name = "";
+									this.filters.warehouses.forEach(wh => {
+										item.balances[wh] = 0;
+									});
+									item.total = 0;
+								} else if (wasValid) {
+									// Re-sync with valid data if reverted
+									this.fetchRowStock(item);
+								}
+							}
+							this.activeSearchRow = null;
+							this.searchResults = [];
+						}
+					}, 200);
 				},
 
 				openItemDoc(item_code) {
