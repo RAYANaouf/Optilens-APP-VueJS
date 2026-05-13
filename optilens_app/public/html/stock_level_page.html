@@ -1,0 +1,169 @@
+<div id="stock-level-app" class="stock-level-container">
+    <!-- Sidebar -->
+    <div class="stock-sidebar">
+        <div class="sidebar-header">
+            <h4>Filters</h4>
+        </div>
+        <div class="sidebar-content">
+            <!-- Company Multi-select -->
+            <div class="filter-section">
+                <div class="d-flex justify-content-between align-items-center mb-2 clickable" @click="toggleSection('company')">
+                    <label class="filter-label mb-0">Companies</label>
+                    <div class="filter-actions d-flex align-items-center">
+                        <span class="mr-2 text-muted">[[ filters.companies.length ]] selected</span>
+                        <i :class="collapsedSections.company ? 'fa fa-chevron-down' : 'fa fa-chevron-up'"></i>
+                    </div>
+                </div>
+                
+                <div v-show="!collapsedSections.company">
+                    <div class="d-flex justify-content-end mb-2">
+                        <div class="filter-actions">
+                            <a href="#" @click.prevent="selectAllCompanies" class="text-xs">All</a>
+                            <span class="text-muted mx-1">|</span>
+                            <a href="#" @click.prevent="deselectAllCompanies" class="text-xs">None</a>
+                        </div>
+                    </div>
+                    <input type="text" v-model="searchTerms.company" class="form-control mb-2" placeholder="Search Company...">
+                    <div class="company-list filter-list-container">
+                        <div v-for="company in filteredCompanies" :key="company" 
+                            class="checkbox" :class="{ active: filters.companies.includes(company) }">
+                            <label>
+                                <input type="checkbox" :value="company" v-model="filters.companies" @change="onCompanyChange">
+                                <span class="lbl">[[ company ]]</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warehouse Multi-select -->
+            <div class="filter-section">
+                <div class="d-flex justify-content-between align-items-center mb-2 clickable" @click="toggleSection('warehouse')">
+                    <label class="filter-label mb-0">Warehouses</label>
+                    <div class="filter-actions d-flex align-items-center">
+                        <span class="mr-2 text-muted">[[ filters.warehouses.length ]] selected</span>
+                        <i :class="collapsedSections.warehouse ? 'fa fa-chevron-down' : 'fa fa-chevron-up'"></i>
+                    </div>
+                </div>
+
+                <div v-show="!collapsedSections.warehouse">
+                    <div class="d-flex justify-content-end mb-2">
+                        <div class="filter-actions">
+                            <a href="#" @click.prevent="selectAllWarehouses" class="text-xs">All</a>
+                            <span class="text-muted mx-1">|</span>
+                            <a href="#" @click.prevent="deselectAllWarehouses" class="text-xs">None</a>
+                        </div>
+                    </div>
+                    <input type="text" v-model="searchTerms.warehouse" class="form-control mb-2" placeholder="Search Warehouse...">
+                    <div class="warehouse-list filter-list-container">
+                        <div v-for="wh in filteredWarehouses" :key="wh" 
+                            class="checkbox" :class="{ active: filters.warehouses.includes(wh) }">
+                            <label>
+                                <input type="checkbox" :value="wh" v-model="filters.warehouses">
+                                <span class="lbl">[[ wh ]]</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Item Group Multi-select -->
+            <div class="filter-section">
+                <div class="d-flex justify-content-between align-items-center mb-2 clickable" @click="toggleSection('item_group')">
+                    <label class="filter-label mb-0">Item Groups</label>
+                    <div class="filter-actions d-flex align-items-center">
+                        <span class="mr-2 text-muted">[[ filters.item_groups.length ]] selected</span>
+                        <i :class="collapsedSections.item_group ? 'fa fa-chevron-down' : 'fa fa-chevron-up'"></i>
+                    </div>
+                </div>
+
+                <div v-show="!collapsedSections.item_group">
+                    <div class="d-flex justify-content-end mb-2">
+                        <div class="filter-actions">
+                            <a href="#" @click.prevent="selectAllItemGroups" class="text-xs">All</a>
+                            <span class="text-muted mx-1">|</span>
+                            <a href="#" @click.prevent="deselectAllItemGroups" class="text-xs">None</a>
+                        </div>
+                    </div>
+                    <input type="text" v-model="searchTerms.item_group" class="form-control mb-2" placeholder="Search Item Group...">
+                    <div class="item-group-list filter-list-container">
+                        <div v-for="group in filteredItemGroups" :key="group" 
+                            class="checkbox" :class="{ active: filters.item_groups.includes(group) }">
+                            <label>
+                                <input type="checkbox" :value="group" v-model="filters.item_groups" @change="fetchStock">
+                                <span class="lbl">[[ group ]]</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="stock-main-content">
+        <div class="table-container">
+            <table class="table table-bordered table-hover stock-table">
+                <thead>
+                    <tr>
+                        <th class="sticky-col">Item</th>
+                        <th v-for="wh in filters.warehouses" :key="wh" class="text-right">
+                            [[ wh ]]
+                        </th>
+                        <th class="text-right font-weight-bold">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(item, index) in stockData" :key="'row-' + index">
+                        <td class="sticky-col">
+                            <div class="item-link-field-container">
+                                <input type="text" 
+                                       v-model="item.item_code" 
+                                       class="form-control form-control-sm" 
+                                       placeholder="Search Item..."
+                                       @focus="onItemSearchFocus(item)"
+                                       @input="onItemSearchInput(item)">
+                                <div class="item-search-results" v-if="activeSearchRow === item && searchResults.length">
+                                    <div v-for="res in searchResults" 
+                                         :key="res.name" 
+                                         class="search-result-item"
+                                         @mousedown.prevent="selectItem(item, res)">
+                                        <div class="res-code">[[ res.name ]]</div>
+                                        <div class="res-name text-muted">[[ res.item_name ]]</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td v-for="wh in filters.warehouses" 
+                            :key="item.item_code + '-' + wh" 
+                            class="text-right" 
+                            :class="getBalanceClass(item.balances[wh])">
+                            <input type="number" 
+                                   v-model="item.balances[wh]" 
+                                   class="form-control form-control-sm text-right" 
+                                   @input="updateTotal(item)">
+                        </td>
+                        <td class="text-right font-weight-bold">
+                            <input type="number" 
+                                   :value="item.total" 
+                                   class="form-control form-control-sm text-right font-weight-bold readonly-field" 
+                                   readonly>
+                        </td>
+                    </tr>
+                    <tr v-if="stockData.length === 0">
+                        <td :colspan="filters.warehouses.length + 2" class="text-center text-muted">
+                            No items found. Please adjust filters.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Actions below the table -->
+        <div class="table-actions mt-3">
+            <button class="btn btn-primary btn-sm d-flex align-items-center" @click="addNewItem">
+                <i class="fa fa-plus mr-2"></i>
+                Add Item
+            </button>
+        </div>
+    </div>
+</div>
