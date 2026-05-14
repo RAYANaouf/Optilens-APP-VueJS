@@ -43,6 +43,209 @@
         </button>
       </div>
       <div class="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+        <!-- Sales Filter -->
+        <div>
+          <button
+            @click="collapsed.sales = !collapsed.sales"
+            class="flex items-center justify-between w-full text-left mb-2 hover:bg-gray-50 p-1 rounded"
+          >
+            <span class="text-sm font-medium text-gray-700">Sales</span>
+            <FeatherIcon
+              :name="collapsed.sales ? 'chevron-right' : 'chevron-down'"
+              class="w-4 h-4 text-gray-500 transition-transform"
+            />
+          </button>
+          <div v-show="!collapsed.sales" class="p-2 space-y-4 transition-all">
+            <div class="flex flex-col gap-2">
+              <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Sales Period</label>
+              <div class="space-y-3 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                <!-- Start Date -->
+                <div class="space-y-1 relative">
+                  <span class="text-[9px] font-bold text-blue-500/70 uppercase ml-1">From</span>
+                  <div 
+                    @click="openCustomPicker('start')"
+                    class="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 transition-all flex justify-between items-center"
+                  >
+                    <span :class="filters.sales.start ? 'text-gray-900' : 'text-gray-400'">
+                      {{ filters.sales.start ? formatDateDisplay(filters.sales.start) : 'Select date & time' }}
+                    </span>
+                    <FeatherIcon name="calendar" class="w-3.5 h-3.5 text-gray-400" />
+                  </div>
+                  
+                  <!-- Custom Popup for Start Date -->
+                  <div v-if="showDatePicker === 'start'" class="fixed left-64 top-1/2 -translate-y-1/2 ml-4 z-[100] bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 w-[320px]">
+                    <div class="flex justify-between items-center mb-5 pb-2 border-b">
+                      <span class="text-xs font-bold text-gray-900 uppercase tracking-widest">Pick Start Date</span>
+                      <button @click.stop="showDatePicker = null" class="p-1 hover:bg-gray-100 rounded-lg">
+                        <FeatherIcon name="x" class="w-4 h-4 text-gray-400" />
+                      </button>
+                    </div>
+                    
+                    <div class="space-y-6">
+                      <!-- Custom Calendar Selection -->
+                      <div class="space-y-3">
+                        <div class="flex items-center justify-between px-1">
+                          <button @click="prevMonth" class="p-1 hover:bg-gray-100 rounded-lg">
+                            <FeatherIcon name="chevron-left" class="w-4 h-4 text-gray-600" />
+                          </button>
+                          <span class="text-xs font-bold text-gray-700">{{ monthName }} {{ currentCalendarYear }}</span>
+                          <button @click="nextMonth" class="p-1 hover:bg-gray-100 rounded-lg">
+                            <FeatherIcon name="chevron-right" class="w-4 h-4 text-gray-600" />
+                          </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-7 gap-1 text-center">
+                          <span v-for="d in ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']" :key="d" class="text-[9px] font-bold text-gray-400 uppercase">{{ d }}</span>
+                          <template v-for="(day, idx) in calendarDays" :key="idx">
+                            <button 
+                              v-if="day"
+                              @click="selectCalendarDate(day)"
+                              :class="[
+                                'h-8 w-8 text-[11px] rounded-lg transition-all flex items-center justify-center',
+                                tempDateTime.date === `${currentCalendarYear}-${(currentCalendarMonth+1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+                                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30'
+                                  : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                              ]"
+                            >
+                              {{ day }}
+                            </button>
+                            <div v-else class="h-8 w-8"></div>
+                          </template>
+                        </div>
+                      </div>
+
+                      <!-- Custom Time Selection -->
+                      <div class="space-y-3 pt-2 border-t border-gray-100">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Time Selection</label>
+                        <div class="flex gap-2 items-center">
+                          <div class="flex-1 bg-gray-50 rounded-xl p-1 flex items-center">
+                            <select v-model="tempDateTime.hours" class="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 cursor-pointer text-center">
+                              <option v-for="h in 24" :key="h-1" :value="(h-1).toString().padStart(2, '0')">{{ (h-1).toString().padStart(2, '0') }}</option>
+                            </select>
+                            <span class="text-gray-400 text-[10px]">:</span>
+                            <select v-model="tempDateTime.minutes" class="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 cursor-pointer text-center">
+                              <option v-for="m in ['00', '15', '30', '45']" :key="m" :value="m">{{ m }}</option>
+                            </select>
+                          </div>
+                          <div class="px-2 py-2 bg-blue-50 rounded-lg">
+                            <FeatherIcon name="clock" class="w-4 h-4 text-blue-600" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button 
+                      @click="commitDateTime('start')"
+                      class="w-full mt-8 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                    >
+                      Apply Selection
+                    </button>
+                  </div>
+                </div>
+
+                <!-- End Date -->
+                <div class="space-y-1 relative">
+                  <span class="text-[9px] font-bold text-blue-500/70 uppercase ml-1">To</span>
+                  <div 
+                    @click="openCustomPicker('end')"
+                    class="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 transition-all flex justify-between items-center"
+                  >
+                    <span :class="filters.sales.end ? 'text-gray-900' : 'text-gray-400'">
+                      {{ filters.sales.end ? formatDateDisplay(filters.sales.end) : 'Select date & time' }}
+                    </span>
+                    <FeatherIcon name="calendar" class="w-3.5 h-3.5 text-gray-400" />
+                  </div>
+
+                  <!-- Custom Popup for End Date -->
+                  <div v-if="showDatePicker === 'end'" class="fixed left-64 top-1/2 -translate-y-1/2 ml-4 z-[100] bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 w-[320px]">
+                    <div class="flex justify-between items-center mb-5 pb-2 border-b">
+                      <span class="text-xs font-bold text-gray-900 uppercase tracking-widest">Pick End Date</span>
+                      <button @click.stop="showDatePicker = null" class="p-1 hover:bg-gray-100 rounded-lg">
+                        <FeatherIcon name="x" class="w-4 h-4 text-gray-400" />
+                      </button>
+                    </div>
+                    
+                    <div class="space-y-6">
+                      <!-- Custom Calendar Selection -->
+                      <div class="space-y-3">
+                        <div class="flex items-center justify-between px-1">
+                          <button @click="prevMonth" class="p-1 hover:bg-gray-100 rounded-lg">
+                            <FeatherIcon name="chevron-left" class="w-4 h-4 text-gray-600" />
+                          </button>
+                          <span class="text-xs font-bold text-gray-700">{{ monthName }} {{ currentCalendarYear }}</span>
+                          <button @click="nextMonth" class="p-1 hover:bg-gray-100 rounded-lg">
+                            <FeatherIcon name="chevron-right" class="w-4 h-4 text-gray-600" />
+                          </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-7 gap-1 text-center">
+                          <span v-for="d in ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']" :key="d" class="text-[9px] font-bold text-gray-400 uppercase">{{ d }}</span>
+                          <template v-for="(day, idx) in calendarDays" :key="idx">
+                            <button 
+                              v-if="day"
+                              @click="selectCalendarDate(day)"
+                              :class="[
+                                'h-8 w-8 text-[11px] rounded-lg transition-all flex items-center justify-center',
+                                tempDateTime.date === `${currentCalendarYear}-${(currentCalendarMonth+1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+                                  ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30'
+                                  : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                              ]"
+                            >
+                              {{ day }}
+                            </button>
+                            <div v-else class="h-8 w-8"></div>
+                          </template>
+                        </div>
+                      </div>
+
+                      <!-- Custom Time Selection -->
+                      <div class="space-y-3 pt-2 border-t border-gray-100">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Time Selection</label>
+                        <div class="flex gap-2 items-center">
+                          <div class="flex-1 bg-gray-50 rounded-xl p-1 flex items-center">
+                            <select v-model="tempDateTime.hours" class="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 cursor-pointer text-center">
+                              <option v-for="h in 24" :key="h-1" :value="(h-1).toString().padStart(2, '0')">{{ (h-1).toString().padStart(2, '0') }}</option>
+                            </select>
+                            <span class="text-gray-400 text-[10px]">:</span>
+                            <select v-model="tempDateTime.minutes" class="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 cursor-pointer text-center">
+                              <option v-for="m in ['00', '15', '30', '45']" :key="m" :value="m">{{ m }}</option>
+                            </select>
+                          </div>
+                          <div class="px-2 py-2 bg-blue-50 rounded-lg">
+                            <FeatherIcon name="clock" class="w-4 h-4 text-blue-600" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button 
+                      @click="commitDateTime('end')"
+                      class="w-full mt-8 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                    >
+                      Apply Selection
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pt-1 flex gap-2">
+                  <button 
+                    @click="setQuickDate('today')"
+                    class="flex-1 py-1 text-[10px] font-bold bg-white border border-gray-200 text-gray-600 rounded-md hover:border-blue-300 hover:text-blue-600 transition-all"
+                  >
+                    Today
+                  </button>
+                  <button 
+                    @click="setQuickDate('week')"
+                    class="flex-1 py-1 text-[10px] font-bold bg-white border border-gray-200 text-gray-600 rounded-md hover:border-blue-300 hover:text-blue-600 transition-all"
+                  >
+                    This Week
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Company Filter -->
         <div>
           <button
@@ -275,6 +478,14 @@
                 </select>
               </div>
             </div>
+
+            <button 
+              @click="exportToExcel"
+              class="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-bold shadow-sm"
+            >
+              <FeatherIcon name="download" class="w-4 h-4" />
+              Export to XL
+            </button>
           </div>
 
           <div class="overflow-auto max-h-[600px] border rounded-lg shadow-inner">
@@ -389,6 +600,14 @@ export default {
       sidebarOpen: false,
       showDetailsModal: false,
       selectedCell: null,
+      showDatePicker: null, // 'start' or 'end' or null
+      currentCalendarMonth: new Date().getMonth(),
+      currentCalendarYear: new Date().getFullYear(),
+      tempDateTime: {
+        date: '',
+        hours: '00',
+        minutes: '00'
+      },
       searchQueries: {
         company: '',
         warehouse: '',
@@ -400,8 +619,13 @@ export default {
         warehouses: [],
         groups: [],
         brands: [],
+        sales: {
+          start: '',
+          end: '',
+        },
       },
       collapsed: {
+        sales: false,
         company: true,
         warehouse: true,
         group: true,
@@ -421,6 +645,8 @@ export default {
             groups: this.filters.groups,
             brands: this.filters.brands,
             matrix_type: this.matrixType, // Pass the sign type to backend
+            sales_start: this.filters.sales.start,
+            sales_end: this.filters.sales.end,
           }
         },
         onSuccess: (data) => {
@@ -472,6 +698,24 @@ export default {
     },
     clyValues() {
       return this.generatePrescriptionValues(this.clyRange)
+    },
+    calendarDays() {
+      const daysInMonth = new Date(this.currentCalendarYear, this.currentCalendarMonth + 1, 0).getDate()
+      const firstDayOfMonth = new Date(this.currentCalendarYear, this.currentCalendarMonth, 1).getDay()
+      
+      const days = []
+      // Padding for first week
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        days.push(null)
+      }
+      // Actual days
+      for (let i = 1; i <= daysInMonth; i++) {
+        days.push(i)
+      }
+      return days
+    },
+    monthName() {
+      return new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(this.currentCalendarYear, this.currentCalendarMonth))
     },
     totalSelected() {
       return this.filters.companies.length +
@@ -541,6 +785,98 @@ export default {
         this.filters.brands = [...this.$resources.filterOptions.data.brands]
       }
     },
+    exportToExcel() {
+      if (!this.matrixData || Object.keys(this.matrixData).length === 0) {
+        alert('No data to export')
+        return
+      }
+
+      const fileName = `Stock_Matrix_${this.matrixType.replace('/', '_')}_${new Date().toISOString().slice(0, 10)}.xls`
+
+      // XML Spreadsheet 2003 template
+      let xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#495057" ss:Bold="1"/>
+   <Interior ss:Color="#F8F9FA" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="StockPos">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#065F46"/>
+   <Interior ss:Color="#D1FAE5" ss:Pattern="Solid"/>
+   <NumberFormat ss:Format="0.00"/>
+  </Style>
+  <Style ss:ID="StockNeg">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#991B1B"/>
+   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
+   <NumberFormat ss:Format="0.00"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="${this.matrixType}">
+  <Table>
+   <Column ss:Width="80"/>
+   ${this.clyValues.map(() => '<Column ss:Width="50"/>').join('')}
+   <Row ss:Height="20">
+    <Cell ss:StyleID="Header"><Data ss:Type="String">SPH \\ CLY</Data></Cell>
+    ${this.clyValues.map(cly => `<Cell ss:StyleID="Header"><Data ss:Type="String">${cly}</Data></Cell>`).join('')}
+   </Row>
+   ${this.sphValues.map(sph => `
+   <Row ss:Height="18">
+    <Cell ss:StyleID="Header"><Data ss:Type="String">${sph}</Data></Cell>
+    ${this.clyValues.map(cly => {
+      const qty = this.matrixData[`${sph}-${cly}`]?.qty || 0
+      const style = qty > 0 ? 'StockPos' : 'StockNeg'
+      return `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${qty}</Data></Cell>`
+    }).join('')}
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+</Workbook>`
+
+      const blob = new Blob([xml], { type: 'application/vnd.ms-excel' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', fileName)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    },
     applyFilters() {
       console.log('Applying filters:', this.filters)
       this.$resources.stockMatrix.fetch()
@@ -551,9 +887,98 @@ export default {
       this.selectedCell = {
         sph,
         cly,
-        ...cell
+        qty: cell.qty,
+        items: cell.items
       }
       this.showDetailsModal = true
+    },
+    setQuickDate(range) {
+      const now = new Date()
+      const format = (d) => d.toISOString().slice(0, 16)
+      
+      if (range === 'today') {
+        const start = new Date(now)
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(now)
+        end.setHours(23, 59, 59, 999)
+        this.filters.sales.start = format(start)
+        this.filters.sales.end = format(end)
+      } else if (range === 'week') {
+        const start = new Date(now)
+        start.setDate(now.getDate() - now.getDay())
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(now)
+        end.setHours(23, 59, 59, 999)
+        this.filters.sales.start = format(start)
+        this.filters.sales.end = format(end)
+      }
+    },
+    formatDateDisplay(val) {
+      if (!val) return ''
+      try {
+        const d = new Date(val)
+        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      } catch (e) {
+        return val
+      }
+    },
+    openCustomPicker(type) {
+      this.showDatePicker = type
+      const current = this.filters.sales[type]
+      if (current) {
+        const [date, time] = current.split('T')
+        const [hours, minutes] = (time || '00:00').split(':')
+        this.tempDateTime = { 
+          date: date || new Date().toISOString().split('T')[0], 
+          hours: hours || '00', 
+          minutes: minutes || '00' 
+        }
+      } else {
+        const now = new Date()
+        this.tempDateTime = {
+          date: now.toISOString().split('T')[0],
+          hours: now.getHours().toString().padStart(2, '0'),
+          minutes: '00'
+        }
+      }
+      
+      // Initialize calendar if not set
+      if (!this.currentCalendarMonth) {
+        const d = new Date(this.tempDateTime.date)
+        this.currentCalendarMonth = d.getMonth()
+        this.currentCalendarYear = d.getFullYear()
+      }
+    },
+    prevMonth() {
+      if (this.currentCalendarMonth === 0) {
+        this.currentCalendarMonth = 11
+        this.currentCalendarYear--
+      } else {
+        this.currentCalendarMonth--
+      }
+    },
+    nextMonth() {
+      if (this.currentCalendarMonth === 11) {
+        this.currentCalendarMonth = 0
+        this.currentCalendarYear++
+      } else {
+        this.currentCalendarMonth++
+      }
+    },
+    selectCalendarDate(day) {
+      const date = new Date(this.currentCalendarYear, this.currentCalendarMonth, day)
+      // Adjust for timezone to get correct YYYY-MM-DD
+      const offset = date.getTimezoneOffset()
+      const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000))
+      this.tempDateTime.date = adjustedDate.toISOString().split('T')[0]
+    },
+    commitDateTime(type) {
+      if (!this.tempDateTime.date) {
+        alert('Please select a date')
+        return
+      }
+      this.filters.sales[type] = `${this.tempDateTime.date}T${this.tempDateTime.hours}:${this.tempDateTime.minutes}`
+      this.showDatePicker = null
     },
     async saveMatrix() {
       this.saving = true
@@ -573,3 +998,17 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.custom-datetime-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  margin-right: -4px;
+  padding: 2px;
+  filter: invert(48%) sepia(79%) saturate(2718%) hue-rotate(192deg) brightness(101%) contrast(101%);
+}
+
+.custom-datetime-input::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+</style>

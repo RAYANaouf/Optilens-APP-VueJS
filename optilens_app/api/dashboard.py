@@ -2,7 +2,7 @@ import frappe
 
 
 @frappe.whitelist()
-def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None, matrix_type="+/+"):
+def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None, matrix_type="+/+", sales_start=None, sales_end=None):
     """Fetch stock matrix data (SPH vs CLY) based on filters and sign type"""
     try:
         if isinstance(companies, str):
@@ -16,8 +16,8 @@ def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None, 
 
         # Parse matrix_type signs
         # Expected formats: "+/+", "-/-", "+/-", "-/+"
-        sph_sign = matrix_type.split('/')[0]
-        cyl_sign = matrix_type.split('/')[1]
+        cyl_sign = matrix_type.split('/')[0]
+        sph_sign = matrix_type.split('/')[1]
 
         filters = {
             "disabled": 0,
