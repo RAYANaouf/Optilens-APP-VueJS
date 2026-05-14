@@ -413,6 +413,7 @@ export default {
           }
         },
         onSuccess: (data) => {
+          console.log('Stock Matrix data:', data)
           this.matrixData = data || {}
           // Fill the editable matrix with these values
           this.matrix = { ...this.matrixData }

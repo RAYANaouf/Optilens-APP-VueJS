@@ -141,6 +141,8 @@ window.start_stock_level_app = function() {
 								search: this.filters.search
 							}
 						});
+						
+						console.log('Stock fetch result:', response.message);
 						this.stockData = response.message || [];
 					} catch (e) {
 						console.error('Error fetching stock levels:', e);
@@ -170,12 +172,10 @@ window.start_stock_level_app = function() {
 
 				selectAllItemGroups() {
 					this.filters.item_groups = [...this.options.item_groups];
-					this.fetchStock();
 				},
 
 				deselectAllItemGroups() {
 					this.filters.item_groups = [];
-					this.fetchStock();
 				},
 
 				toggleSection(section) {

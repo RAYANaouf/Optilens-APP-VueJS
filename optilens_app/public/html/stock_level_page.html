@@ -86,15 +86,19 @@
                         </div>
                     </div>
                     <input type="text" v-model="searchTerms.item_group" class="form-control mb-2" placeholder="Search Item Group...">
-                    <div class="item-group-list filter-list-container">
+                    <div class="item-group-list filter-list-container mb-3">
                         <div v-for="group in filteredItemGroups" :key="group" 
                             class="checkbox" :class="{ active: filters.item_groups.includes(group) }">
                             <label>
-                                <input type="checkbox" :value="group" v-model="filters.item_groups" @change="fetchStock">
+                                <input type="checkbox" :value="group" v-model="filters.item_groups">
                                 <span class="lbl">[[ group ]]</span>
                             </label>
                         </div>
                     </div>
+                    <button class="btn btn-primary btn-sm btn-block d-flex align-items-center justify-content-center" @click="fetchStock">
+                        <i class="fa fa-filter mr-2"></i>
+                        Apply Filters
+                    </button>
                 </div>
             </div>
         </div>
