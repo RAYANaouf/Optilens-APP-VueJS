@@ -1,5 +1,16 @@
 <template>
   <div class="min-h-screen bg-gray-50 relative">
+    <!-- Loading Overlay -->
+    <div v-if="$resources.stockMatrix.loading" class="fixed inset-0 bg-white/60 backdrop-blur-[2px] z-[100] flex items-center justify-center transition-all">
+      <div class="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-blue-50">
+        <div class="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+        <div class="flex flex-col items-center">
+          <span class="text-sm font-semibold text-gray-900">Loading Stock Matrix</span>
+          <span class="text-xs text-gray-500 animate-pulse">Fetching latest levels...</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Sidebar Toggle Button -->
     <button
       @click="toggleSidebar"
@@ -235,7 +246,7 @@
                   <button 
                     v-for="type in ['+/+', '-/-', '+/-', '-/+']" 
                     :key="type"
-                    @click="matrixType = type"
+                    @click="matrixType = type; applyFilters()"
                     :class="[
                       'px-3 py-1 text-xs font-bold rounded-md transition-all whitespace-nowrap',
                       matrixType === type ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
