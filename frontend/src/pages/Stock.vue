@@ -535,13 +535,13 @@
                     @click="showCellDetails(sph, cly)"
                   >
                     {{ matrix[`${sph}-${cly}`]?.qty || 0 }}
-                    <!-- Sales Qty Badge -->
+                    <!-- Best Sell Qty Badge -->
                     <span 
-                      v-if="filters.sales.getBestSellers && (matrix[`${sph}-${cly}`]?.sold_qty || 0) > 0"
-                      class="absolute top-0 right-0 bg-blue-600 text-white text-[9px] px-1 rounded-bl leading-tight font-bold shadow-sm"
-                      title="Total Sold in period"
+                      v-if="filters.sales.getBestSellers && (matrix[`${sph}-${cly}`]?.best_sell_qty || 0) > 0"
+                      class="absolute top-0 right-0 bg-purple-600 text-white text-[9px] px-1 rounded-bl leading-tight font-bold shadow-sm"
+                      title="Best Monthly Sale (Last 1 Year)"
                     >
-                      {{ matrix[`${sph}-${cly}`]?.sold_qty }}
+                      {{ matrix[`${sph}-${cly}`]?.best_sell_qty }}
                     </span>
                   </td>
                 </tr>
