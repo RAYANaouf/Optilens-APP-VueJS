@@ -565,11 +565,12 @@
           <table class="w-full text-sm text-left table-fixed">
             <thead class="bg-gray-50 text-gray-600 font-medium border-b">
               <tr>
-                <th class="p-3 w-[40%]">Item Name</th>
-                <th class="p-3 w-[25%]">Company</th>
+                <th class="p-3 w-[30%]">Item Name</th>
+                <th class="p-3 w-[20%]">Company</th>
                 <th class="p-3 w-[20%]">Warehouse</th>
-                <th class="p-3 text-right w-[7.5%]">Qty</th>
-                <th v-if="filters.sales.getBestSellers" class="p-3 text-right text-blue-600 w-[7.5%]">Sold</th>
+                <th class="p-3 text-right w-[7%]">Qty</th>
+                <th v-if="filters.sales.getBestSellers" class="p-3 text-right text-blue-600 w-[7%]">Sold</th>
+                <th v-if="filters.sales.getBestSellers" class="p-3 text-right text-purple-600 w-[16%]">Best Month</th>
               </tr>
             </thead>
             <tbody class="divide-y">
@@ -587,6 +588,13 @@
                 <td v-if="filters.sales.getBestSellers" class="p-3 text-right font-bold text-blue-600">
                   {{ item.sold_qty || 0 }}
                 </td>
+                <td v-if="filters.sales.getBestSellers" class="p-3 text-right font-bold text-purple-600">
+                  <div v-if="item.best_sell_qty > 0" class="flex flex-col items-end leading-tight">
+                    <span>{{ item.best_sell_qty }}</span>
+                    <span class="text-[9px] text-purple-400 font-medium uppercase">{{ formatMonthOnly(item.best_sell_month) }}</span>
+                  </div>
+                  <span v-else>-</span>
+                </td>
               </tr>
             </tbody>
             <tfoot class="bg-gray-50 border-t font-black">
@@ -594,7 +602,10 @@
                 <td colspan="3" class="p-3 text-right text-gray-700">Total Selection</td>
                 <td class="p-3 text-right text-blue-600">{{ selectedCell.qty }}</td>
                 <td v-if="filters.sales.getBestSellers" class="p-3 text-right text-blue-600 border-l border-gray-200">
-                  {{ selectedCell.sold_qty || 0 }}
+                  {{ selectedCell.sold_qty }}
+                </td>
+                <td v-if="filters.sales.getBestSellers" class="p-3 text-right text-purple-600 border-l border-gray-200">
+                  {{ selectedCell.best_sell_qty }}
                 </td>
               </tr>
             </tfoot>
@@ -920,6 +931,8 @@ export default {
       this.selectedCell = {
         sph,
         cly,
+        best_sell_qty: cell.best_sell_qty,
+        sold_qty: cell.sold_qty,
         qty: cell.qty,
         items: cell.items
       }
@@ -946,14 +959,24 @@ export default {
         this.filters.sales.end = format(end)
       }
     },
-    formatDateDisplay(val) {
-      if (!val) return ''
-      try {
-        const d = new Date(val)
-        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      } catch (e) {
-        return val
-      }
+    formatDateDisplay(isoString) {
+      if (!isoString) return ''
+      const date = new Date(isoString)
+      return date.toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    },
+    formatMonthOnly(isoString) {
+      if (!isoString) return ''
+      const date = new Date(isoString)
+      return date.toLocaleDateString(undefined, { 
+        month: 'long', 
+        year: 'numeric'
+      })
     },
     openCustomPicker(type) {
       this.showDatePicker = type

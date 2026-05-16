@@ -4,13 +4,15 @@ from frappe.utils import flt
 
 
 
+
+
 @frappe.whitelist()
 def get_stock_matrix(
     companies=None,
     warehouses=None,
     groups=None,
     brands=None,
-    matrix_type="+/+",
+    matrix_type=None,
     sales_start=None,
     sales_end=None,
     include_sales_data=0
@@ -105,50 +107,72 @@ def get_stock_matrix(
                 conditions.append("si.company IN %(companies)s")
                 params["companies"] = companies
 
+            if warehouses:
+                conditions.append("sii.warehouse IN %(warehouses)s")
+                params["warehouses"] = warehouses
+
             # -------------------------
             # TOTAL SALES
             # -------------------------
             total_sql = f"""
                 SELECT
                     sii.item_code,
+                    sii.warehouse,
                     SUM(sii.qty) AS total_qty
                 FROM `tabSales Invoice Item` sii
                 JOIN `tabSales Invoice` si
                     ON si.name = sii.parent
                 WHERE {" AND ".join(conditions)}
-                GROUP BY sii.item_code
+                GROUP BY sii.item_code, sii.warehouse
             """
 
             total_data = frappe.db.sql(total_sql, params, as_dict=1)
 
             sales_map = {
-                d.item_code: flt(d.total_qty or 0)
+                f"{d.item_code}-{d.warehouse}": flt(d.total_qty or 0)
                 for d in total_data
             }
 
             # -------------------------
-            # BEST SELL MONTH
+            # BEST SELL MONTH (Last 1 Year)
             # -------------------------
+            best_sell_conditions = [
+                "si.docstatus = 1",
+                "sii.item_code IN %(items)s",
+                "si.posting_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)"
+            ]
+            best_sell_params = {"items": item_names}
+
+            if companies:
+                best_sell_conditions.append("si.company IN %(companies)s")
+                best_sell_params["companies"] = companies
+            
+            if warehouses:
+                best_sell_conditions.append("sii.warehouse IN %(warehouses)s")
+                best_sell_params["warehouses"] = warehouses
+
             monthly_sql = f"""
                 SELECT
                     sii.item_code,
+                    sii.warehouse,
                     YEAR(si.posting_date) AS y,
                     MONTH(si.posting_date) AS m,
                     SUM(sii.qty) AS qty_month
                 FROM `tabSales Invoice Item` sii
                 JOIN `tabSales Invoice` si
                     ON si.name = sii.parent
-                WHERE {" AND ".join(conditions)}
-                GROUP BY sii.item_code, y, m
+                WHERE {" AND ".join(best_sell_conditions)}
+                GROUP BY sii.item_code, sii.warehouse, y, m
             """
 
-            monthly_data = frappe.db.sql(monthly_sql, params, as_dict=1)
+            monthly_data = frappe.db.sql(monthly_sql, best_sell_params, as_dict=1)
 
             temp = {}
 
             for r in monthly_data:
-                if r.item_code not in temp or r.qty_month > temp[r.item_code].qty_month:
-                    temp[r.item_code] = r
+                key = f"{r.item_code}-{r.warehouse}"
+                if key not in temp or r.qty_month > temp[key].qty_month:
+                    temp[key] = r
 
             best_month_map = {
                 k: {
@@ -201,13 +225,15 @@ def get_stock_matrix(
             item_bins = bins_by_item.get(item.name, [])
 
             stock_total = 0
-            sold_qty = sales_map.get(item.name, 0)
-            best = best_month_map.get(item.name, {})
-
+            
             for b in item_bins:
-
                 qty = flt(b.actual_qty or 0)
                 stock_total += qty
+
+                # Granular sales per warehouse
+                wh_key = f"{item.name}-{b.warehouse}"
+                sold_qty = sales_map.get(wh_key, 0)
+                best = best_month_map.get(wh_key, {})
 
                 matrix[key]["items"].append({
                     "item_code": item.name,
@@ -218,24 +244,31 @@ def get_stock_matrix(
                     # STOCK
                     "qty": qty,
 
-                    # SALES (same value repeated if needed)
+                    # SALES (Granular per warehouse)
                     "sold_qty": sold_qty,
+                    "best_sell_qty": best.get("qty", 0),
+                    "best_sell_month": best.get("month"),
 
                     "warehouse": b.warehouse,
                     "company": warehouse_map.get(b.warehouse)
                 })
 
-            matrix[key]["qty"] += stock_total
-            matrix[key]["sold_qty"] += sold_qty
+                # Aggregates for the matrix cell
+                matrix[key]["sold_qty"] += sold_qty
+                # Note: best_sell aggregates might be tricky, usually we care about the item's best month overall or sum?
+                # User asked for relationship to Warehouse, so we update the items list.
+                # Top level cell can sum them up or we can keep it as it is.
+                matrix[key]["best_sell_qty"] += best.get("qty", 0)
 
-            matrix[key]["best_sell_qty"] += best.get("qty", 0)
-            matrix[key]["best_sell_month"] = best.get("month")
+            matrix[key]["qty"] += stock_total
 
         return matrix
 
     except Exception:
         frappe.log_error("get_stock_matrix error", frappe.get_traceback())
         return {"error": frappe.get_traceback()}
+
+
 
 
 
