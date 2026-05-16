@@ -241,6 +241,22 @@
                     This Week
                   </button>
                 </div>
+
+                <!-- Best Sellers Toggle -->
+                <div class="pt-2 border-t border-gray-100 mt-2">
+                  <label class="flex items-center gap-2 cursor-pointer group">
+                    <div class="relative">
+                      <input
+                        type="checkbox"
+                        v-model="filters.sales.getBestSellers"
+                        class="sr-only"
+                      />
+                      <div :class="['w-8 h-4 rounded-full transition-colors duration-200 ease-in-out', filters.sales.getBestSellers ? 'bg-blue-600' : 'bg-gray-200']"></div>
+                      <div :class="['absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ease-in-out shadow-sm', filters.sales.getBestSellers ? 'translate-x-4' : 'translate-x-0']"></div>
+                    </div>
+                    <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wider group-hover:text-blue-600 transition-colors">Best Sellers Only</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -513,12 +529,20 @@
                     v-for="cly in clyValues" 
                     :key="`${sph}-${cly}`"
                     :class="[
-                      'p-1 border cursor-pointer transition-colors text-center text-xs font-medium',
+                      'p-1 border cursor-pointer transition-colors text-center text-xs font-medium relative',
                       (matrix[`${sph}-${cly}`]?.qty || 0) <= 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                     ]"
                     @click="showCellDetails(sph, cly)"
                   >
                     {{ matrix[`${sph}-${cly}`]?.qty || 0 }}
+                    <!-- Sales Qty Badge -->
+                    <span 
+                      v-if="filters.sales.getBestSellers && (matrix[`${sph}-${cly}`]?.sold_qty || 0) > 0"
+                      class="absolute top-0 right-0 bg-blue-600 text-white text-[9px] px-1 rounded-bl leading-tight font-bold shadow-sm"
+                      title="Total Sold in period"
+                    >
+                      {{ matrix[`${sph}-${cly}`]?.sold_qty }}
+                    </span>
                   </td>
                 </tr>
               </tbody>
@@ -538,13 +562,14 @@
     >
       <template #body-content>
         <div v-if="selectedCell?.items?.length > 0" class="overflow-hidden rounded-lg border">
-          <table class="w-full text-sm text-left">
+          <table class="w-full text-sm text-left table-fixed">
             <thead class="bg-gray-50 text-gray-600 font-medium border-b">
               <tr>
-                <th class="p-3">Item Name</th>
-                <th class="p-3">Company</th>
-                <th class="p-3">Warehouse</th>
-                <th class="p-3 text-right">Qty</th>
+                <th class="p-3 w-[40%]">Item Name</th>
+                <th class="p-3 w-[25%]">Company</th>
+                <th class="p-3 w-[20%]">Warehouse</th>
+                <th class="p-3 text-right w-[7.5%]">Qty</th>
+                <th v-if="filters.sales.getBestSellers" class="p-3 text-right text-blue-600 w-[7.5%]">Sold</th>
               </tr>
             </thead>
             <tbody class="divide-y">
@@ -553,11 +578,14 @@
                 :key="idx"
                 class="hover:bg-gray-50 transition-colors"
               >
-                <td class="p-3 font-medium text-gray-900">{{ item.item_name }}</td>
-                <td class="p-3 text-gray-600">{{ item.company }}</td>
-                <td class="p-3 text-gray-600 text-xs">{{ item.warehouse }}</td>
+                <td class="p-3 font-medium text-gray-900 truncate" :title="item.item_name">{{ item.item_name }}</td>
+                <td class="p-3 text-gray-600 truncate" :title="item.company">{{ item.company }}</td>
+                <td class="p-3 text-gray-600 text-xs truncate" :title="item.warehouse">{{ item.warehouse }}</td>
                 <td :class="['p-3 text-right font-bold', item.qty < 0 ? 'text-red-600' : 'text-gray-900']">
                   {{ item.qty }}
+                </td>
+                <td v-if="filters.sales.getBestSellers" class="p-3 text-right font-bold text-blue-600">
+                  {{ item.sold_qty || 0 }}
                 </td>
               </tr>
             </tbody>
@@ -565,6 +593,9 @@
               <tr>
                 <td colspan="3" class="p-3 text-right text-gray-700">Total Selection</td>
                 <td class="p-3 text-right text-blue-600">{{ selectedCell.qty }}</td>
+                <td v-if="filters.sales.getBestSellers" class="p-3 text-right text-blue-600 border-l border-gray-200">
+                  {{ selectedCell.sold_qty || 0 }}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -622,6 +653,7 @@ export default {
         sales: {
           start: '',
           end: '',
+          getBestSellers: false,
         },
       },
       collapsed: {
@@ -647,6 +679,7 @@ export default {
             matrix_type: this.matrixType, // Pass the sign type to backend
             sales_start: this.filters.sales.start,
             sales_end: this.filters.sales.end,
+            include_sales_data: this.filters.sales.getBestSellers ? 1 : 0,
           }
         },
         onSuccess: (data) => {

@@ -1,10 +1,26 @@
 import frappe
+from frappe.utils import flt
+
+
 
 
 @frappe.whitelist()
-def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None, matrix_type="+/+", sales_start=None, sales_end=None):
-    """Fetch stock matrix data (SPH vs CLY) based on filters and sign type"""
+def get_stock_matrix(
+    companies=None,
+    warehouses=None,
+    groups=None,
+    brands=None,
+    matrix_type="+/+",
+    sales_start=None,
+    sales_end=None,
+    include_sales_data=0
+):
+
     try:
+
+        # -------------------------
+        # Parse inputs
+        # -------------------------
         if isinstance(companies, str):
             companies = frappe.parse_json(companies)
         if isinstance(warehouses, str):
@@ -14,83 +30,215 @@ def get_stock_matrix(companies=None, warehouses=None, groups=None, brands=None, 
         if isinstance(brands, str):
             brands = frappe.parse_json(brands)
 
-        # Parse matrix_type signs
-        # Expected formats: "+/+", "-/-", "+/-", "-/+"
-        cyl_sign = matrix_type.split('/')[0]
-        sph_sign = matrix_type.split('/')[1]
+        cyl_sign, sph_sign = matrix_type.split('/')
 
-        filters = {
+        # -------------------------
+        # Fetch items
+        # -------------------------
+        item_filters = {
             "disabled": 0,
             "custom_sph_sign": sph_sign,
             "custom_cly_sign": cyl_sign
         }
 
         if groups:
-            filters["item_group"] = ["in", groups]
+            item_filters["item_group"] = ["in", groups]
         if brands:
-            filters["brand"] = ["in", brands]
+            item_filters["brand"] = ["in", brands]
 
-        # Fetch items that match the signs and filters
-        items = frappe.get_all("Item",
-            filters=filters,
-            fields=["name", "item_name", "custom_sph", "custom_cyl", "custom_sph_sign", "custom_cly_sign"]
-        )
-
-        frappe.log_error(
-            title="POS Sync Debug",
-            message=f"Filters: {filters}\nFound {len(items)} items\nFirst few items: {items[:3] if items else 'None'}"
+        items = frappe.get_all(
+            "Item",
+            filters=item_filters,
+            fields=[
+                "name",
+                "item_name",
+                "item_group",
+                "brand",
+                "custom_sph",
+                "custom_cyl"
+            ]
         )
 
         if not items:
             return {}
 
-        item_names = [d.name for d in items]
+        item_names = [i.name for i in items]
 
+        # -------------------------
+        # STOCK (BIN)
+        # -------------------------
         bin_filters = {"item_code": ["in", item_names]}
         if warehouses:
             bin_filters["warehouse"] = ["in", warehouses]
 
-        bins = frappe.get_all("Bin", filters=bin_filters, fields=["item_code", "actual_qty", "warehouse"])
+        bins = frappe.get_all(
+            "Bin",
+            filters=bin_filters,
+            fields=["item_code", "warehouse", "actual_qty"]
+        )
 
-        # Map to matrix format { "sph-cyl": { "qty": total, "items": [...] } }
-        matrix_data = {}
+        bins_by_item = {}
+        for b in bins:
+            bins_by_item.setdefault(b.item_code, []).append(b)
+
+        # -------------------------
+        # SALES DATA
+        # -------------------------
+        sales_map = {}
+        best_month_map = {}
+
+        if int(include_sales_data) == 1:
+
+            conditions = [
+                "si.docstatus = 1",
+                "sii.item_code IN %(items)s"
+            ]
+
+            params = {"items": item_names}
+
+            if sales_start and sales_end:
+                params["start"] = sales_start.split("T")[0]
+                params["end"] = sales_end.split("T")[0]
+                conditions.append("si.posting_date BETWEEN %(start)s AND %(end)s")
+
+            if companies:
+                conditions.append("si.company IN %(companies)s")
+                params["companies"] = companies
+
+            # -------------------------
+            # TOTAL SALES
+            # -------------------------
+            total_sql = f"""
+                SELECT
+                    sii.item_code,
+                    SUM(sii.qty) AS total_qty
+                FROM `tabSales Invoice Item` sii
+                JOIN `tabSales Invoice` si
+                    ON si.name = sii.parent
+                WHERE {" AND ".join(conditions)}
+                GROUP BY sii.item_code
+            """
+
+            total_data = frappe.db.sql(total_sql, params, as_dict=1)
+
+            sales_map = {
+                d.item_code: flt(d.total_qty or 0)
+                for d in total_data
+            }
+
+            # -------------------------
+            # BEST SELL MONTH
+            # -------------------------
+            monthly_sql = f"""
+                SELECT
+                    sii.item_code,
+                    YEAR(si.posting_date) AS y,
+                    MONTH(si.posting_date) AS m,
+                    SUM(sii.qty) AS qty_month
+                FROM `tabSales Invoice Item` sii
+                JOIN `tabSales Invoice` si
+                    ON si.name = sii.parent
+                WHERE {" AND ".join(conditions)}
+                GROUP BY sii.item_code, y, m
+            """
+
+            monthly_data = frappe.db.sql(monthly_sql, params, as_dict=1)
+
+            temp = {}
+
+            for r in monthly_data:
+                if r.item_code not in temp or r.qty_month > temp[r.item_code].qty_month:
+                    temp[r.item_code] = r
+
+            best_month_map = {
+                k: {
+                    "qty": flt(v.qty_month or 0),
+                    "month": f"{v.y}-{str(v.m).zfill(2)}-01"
+                }
+                for k, v in temp.items()
+            }
+
+        # -------------------------
+        # WAREHOUSE MAP
+        # -------------------------
+        warehouse_map = {}
+
+        if bins:
+            wh_names = list(set(b.warehouse for b in bins))
+
+            wh_data = frappe.get_all(
+                "Warehouse",
+                filters={"name": ["in", wh_names]},
+                fields=["name", "company"]
+            )
+
+            warehouse_map = {w.name: w.company for w in wh_data}
+
+        # -------------------------
+        # BUILD MATRIX
+        # -------------------------
+        matrix = {}
+
         for item in items:
-            sph = item.get("custom_sph")
-            cyl = item.get("custom_cyl")
 
-            if sph is not None and cyl is not None:
-                # Use formatted key for frontend consistency
-                key = f"{float(sph):.2f}-{float(cyl):.2f}"
+            sph = item.custom_sph
+            cyl = item.custom_cyl
 
-                # Initialize key if not exists
-                if key not in matrix_data:
-                    matrix_data[key] = {"qty": 0, "items": []}
+            if sph is None or cyl is None:
+                continue
 
-                # We need details for the popup
-                item_total_qty = 0
-                item_bins = [b for b in bins if b.item_code == item.name]
+            key = f"{float(sph):.2f}-{float(cyl):.2f}"
 
-                for b in item_bins:
-                    item_total_qty += b.actual_qty
-                    matrix_data[key]["items"].append({
-                        "item_code": item.name,
-                        "item_name": item.item_name,
-                        "qty": b.actual_qty,
-                        "warehouse": b.warehouse,
-                        "company": frappe.db.get_value("Warehouse", b.warehouse, "company")
-                    })
+            if key not in matrix:
+                matrix[key] = {
+                    "qty": 0,
+                    "sold_qty": 0,
+                    "best_sell_qty": 0,
+                    "best_sell_month": None,
+                    "items": []
+                }
 
-                matrix_data[key]["qty"] += item_total_qty
+            item_bins = bins_by_item.get(item.name, [])
+
+            stock_total = 0
+            sold_qty = sales_map.get(item.name, 0)
+            best = best_month_map.get(item.name, {})
+
+            for b in item_bins:
+
+                qty = flt(b.actual_qty or 0)
+                stock_total += qty
+
+                matrix[key]["items"].append({
+                    "item_code": item.name,
+                    "item_name": item.item_name,
+                    "item_group": item.item_group,
+                    "brand": item.brand,
+
+                    # STOCK
+                    "qty": qty,
+
+                    # SALES (same value repeated if needed)
+                    "sold_qty": sold_qty,
+
+                    "warehouse": b.warehouse,
+                    "company": warehouse_map.get(b.warehouse)
+                })
+
+            matrix[key]["qty"] += stock_total
+            matrix[key]["sold_qty"] += sold_qty
+
+            matrix[key]["best_sell_qty"] += best.get("qty", 0)
+            matrix[key]["best_sell_month"] = best.get("month")
+
+        return matrix
+
+    except Exception:
+        frappe.log_error("get_stock_matrix error", frappe.get_traceback())
+        return {"error": frappe.get_traceback()}
 
 
-        frappe.logger().info(f"matrix_data: {matrix_data}")
-        frappe.errprint(f"matrix_data: {matrix_data}")
-        frappe.log_error(title="get_stock_matrix error", message=f"matrix_data: {matrix_data}")
 
-        return matrix_data
-    except Exception as e:
-        frappe.log_error(title="get_stock_matrix error", message=frappe.get_traceback())
-        return {"error": str(e)}
 
 
 @frappe.whitelist()
