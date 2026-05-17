@@ -21,7 +21,7 @@
 
     <!-- Sidebar Overlay -->
     <div
-      v-if="sidebarOpen || showPeriodDropdown"
+      v-if="sidebarOpen || showPeriodDropdown || showCellModeDropdown || showCornerModeDropdown"
       @click="closeSidebar(); closeDropdowns()"
       class="fixed inset-0 bg-black/5 z-40 transition-opacity duration-300"
     ></div>
@@ -497,6 +497,58 @@
               <div class="h-6 w-px bg-gray-200 mx-1"></div>
 
               <div class="flex items-center gap-4">
+                <!-- Main Cell Display Mode -->
+                <div class="flex items-center gap-2">
+                  <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cell:</label>
+                  <div class="relative">
+                    <button 
+                      @click.stop="showCellModeDropdown = !showCellModeDropdown"
+                      class="flex items-center gap-2 px-2 py-1 bg-gray-50 border rounded-lg hover:bg-white transition-all group/cell"
+                    >
+                      <span class="text-xs font-bold text-gray-700 uppercase">{{ displayModes.cell }}</span>
+                      <FeatherIcon name="chevron-down" :class="['w-3 h-3 text-gray-400 transition-transform', showCellModeDropdown ? 'rotate-180' : '']" />
+                    </button>
+                    <div v-if="showCellModeDropdown" class="absolute left-0 top-full mt-1 z-[110] bg-white rounded-xl shadow-2xl border py-1.5 min-w-[100px]">
+                      <button 
+                        v-for="mode in ['Qty', 'Sold', 'Best Sell', 'Need']" 
+                        :key="mode"
+                        @click="displayModes.cell = mode; showCellModeDropdown = false"
+                        class="w-full px-3 py-1.5 text-left text-[10px] font-bold uppercase hover:bg-gray-50 transition-colors"
+                      >
+                        {{ mode }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Corner Display Mode -->
+                <div class="flex items-center gap-2">
+                  <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Corner:</label>
+                  <div class="relative">
+                    <button 
+                      @click.stop="showCornerModeDropdown = !showCornerModeDropdown"
+                      class="flex items-center gap-2 px-2 py-1 bg-gray-50 border rounded-lg hover:bg-white transition-all group/corner"
+                    >
+                      <span class="text-xs font-bold text-blue-600 uppercase">{{ displayModes.corner }}</span>
+                      <FeatherIcon name="chevron-down" :class="['w-3 h-3 text-blue-400 transition-transform', showCornerModeDropdown ? 'rotate-180' : '']" />
+                    </button>
+                    <div v-if="showCornerModeDropdown" class="absolute left-0 top-full mt-1 z-[110] bg-white rounded-xl shadow-2xl border py-1.5 min-w-[100px]">
+                      <button 
+                        v-for="mode in ['Qty', 'Sold', 'Best Sell', 'Need']" 
+                        :key="mode"
+                        @click="displayModes.corner = mode; showCornerModeDropdown = false"
+                        class="w-full px-3 py-1.5 text-left text-[10px] font-bold uppercase hover:bg-gray-50 transition-colors"
+                      >
+                        {{ mode }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="h-6 w-px bg-gray-200 mx-1"></div>
+
+              <div class="flex items-center gap-4">
                 <label class="flex items-center gap-2 cursor-pointer group">
                   <div class="relative">
                     <input
@@ -593,14 +645,19 @@
                     :class="getCellClass(sph, cly)"
                     @click="showCellDetails(sph, cly)"
                   >
-                    {{ matrix[`${sph}-${cly}`]?.qty || 0 }}
-                    <!-- Best Sell Qty Badge -->
+                    {{ getCellValue(matrix[`${sph}-${cly}`], displayModes.cell) }}
+                    
+                    <!-- Corner Badge -->
                     <span 
-                      v-if="filters.sales.getBestSellers && (matrix[`${sph}-${cly}`]?.best_sell_qty || 0) > 0"
-                      class="absolute top-0 right-0 bg-purple-600 text-white text-[9px] px-1 rounded-bl leading-tight font-bold shadow-sm"
-                      title="Best Monthly Sale (Last 1 Year)"
+                      v-if="getCellValue(matrix[`${sph}-${cly}`], displayModes.corner) !== 0"
+                      :class="[
+                        'absolute top-0 right-0 text-[9px] px-1 rounded-bl leading-tight font-bold shadow-sm',
+                        displayModes.corner === 'Best Sell' ? 'bg-purple-600 text-white' : 
+                        displayModes.corner === 'Sold' ? 'bg-blue-600 text-white' : 
+                        displayModes.corner === 'Need' ? 'bg-orange-600 text-white' : 'bg-gray-600 text-white'
+                      ]"
                     >
-                      {{ matrix[`${sph}-${cly}`]?.best_sell_qty }}
+                      {{ getCellValue(matrix[`${sph}-${cly}`], displayModes.corner) }}
                     </span>
                   </td>
                 </tr>
@@ -739,6 +796,12 @@ export default {
         periodUnit: 'days'
       },
       showPeriodDropdown: false,
+      showCellModeDropdown: false,
+      showCornerModeDropdown: false,
+      displayModes: {
+        cell: 'Qty',
+        corner: 'Best Sell'
+      }
     }
   },
   resources: {
@@ -907,7 +970,24 @@ export default {
     },
     closeDropdowns() {
       this.showPeriodDropdown = false
+      this.showCellModeDropdown = false
+      this.showCornerModeDropdown = false
       this.showDatePicker = null
+    },
+    getCellValue(cell, mode) {
+      if (!cell) return 0
+      if (mode === 'Qty') return cell.qty || 0
+      if (mode === 'Sold') return cell.sold_qty || 0
+      if (mode === 'Best Sell') return cell.best_sell_qty || 0
+      if (mode === 'Need') {
+        const bestSell = cell.best_sell_qty || 0
+        let multiplier = 0
+        if (this.matrixFilters.periodUnit === 'days') multiplier = this.matrixFilters.periodValue / 30
+        else if (this.matrixFilters.periodUnit === 'months') multiplier = this.matrixFilters.periodValue
+        else if (this.matrixFilters.periodUnit === 'years') multiplier = this.matrixFilters.periodValue * 12
+        return Math.ceil(bestSell * multiplier)
+      }
+      return 0
     },
     toggleAllCompanies() {
       if (this.filters.companies.length === this.$resources.filterOptions.data.companies.length) {
