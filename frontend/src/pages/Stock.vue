@@ -355,6 +355,55 @@
           </div>
         </div>
 
+        <!-- Selling Warehouse Filter -->
+        <div>
+          <button
+            @click="collapsed.sellingWarehouse = !collapsed.sellingWarehouse"
+            class="flex items-center justify-between w-full text-left mb-2 hover:bg-gray-50 p-1 rounded"
+          >
+            <span class="text-sm font-medium text-gray-700">Selling Warehouse</span>
+            <FeatherIcon
+              :name="collapsed.sellingWarehouse ? 'chevron-right' : 'chevron-down'"
+              class="w-4 h-4 text-gray-500 transition-transform"
+            />
+          </button>
+          <div v-show="!collapsed.sellingWarehouse" class="rounded-lg p-2 space-y-1 transition-all">
+            <p v-if="filters.companies.length === 0" class="text-sm text-gray-500 italic p-1">
+              Select a company first
+            </p>
+            <template v-else>
+              <input
+                v-model="searchQueries.sellingWarehouse"
+                type="text"
+                placeholder="Search Selling Warehouse..."
+                class="w-full mb-2 p-1.5 text-xs border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer font-medium">
+                <input
+                  type="checkbox"
+                  :checked="filters.sellingWarehouses.length === $resources.filterOptions.data.warehouses.length && $resources.filterOptions.data.warehouses.length > 0"
+                  @change="toggleAllSellingWarehouses"
+                  class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span class="text-sm text-gray-700">All</span>
+              </label>
+              <label
+                v-for="warehouse in filteredOptions.sellingWarehouses"
+                :key="'selling-' + warehouse"
+                class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  v-model="filters.sellingWarehouses"
+                  :value="warehouse"
+                  class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span class="text-sm text-gray-700">{{ warehouse }}</span>
+              </label>
+            </template>
+          </div>
+        </div>
+
         <!-- Group Filter -->
         <div>
           <button
@@ -769,12 +818,14 @@ export default {
       searchQueries: {
         company: '',
         warehouse: '',
+        sellingWarehouse: '',
         group: '',
         brand: '',
       },
       filters: {
         companies: [],
         warehouses: [],
+        sellingWarehouses: [],
         groups: [],
         brands: [],
         sales: {
@@ -787,9 +838,11 @@ export default {
         sales: false,
         company: true,
         warehouse: true,
+        sellingWarehouse: true,
         group: true,
         brand: true,
       },
+      selling_warehouses: [],
       matrixFilters: {
         isEnough: false,
         periodValue: 30,
@@ -813,6 +866,7 @@ export default {
           return {
             companies: this.filters.companies,
             warehouses: this.filters.warehouses,
+            selling_warehouses: this.filters.sellingWarehouses,
             groups: this.filters.groups,
             brands: this.filters.brands,
             matrix_type: this.matrixType, // Pass the sign type to backend
@@ -895,6 +949,7 @@ export default {
     totalSelected() {
       return this.filters.companies.length +
              this.filters.warehouses.length +
+             this.filters.sellingWarehouses.length +
              this.filters.groups.length +
              this.filters.brands.length
     },
@@ -903,6 +958,7 @@ export default {
       return {
         companies: options.companies.filter(i => i.toLowerCase().includes(this.searchQueries.company.toLowerCase())),
         warehouses: options.warehouses.filter(i => i.toLowerCase().includes(this.searchQueries.warehouse.toLowerCase())),
+        sellingWarehouses: options.warehouses.filter(i => i.toLowerCase().includes(this.searchQueries.sellingWarehouse.toLowerCase())),
         groups: options.groups.filter(i => i.toLowerCase().includes(this.searchQueries.group.toLowerCase())),
         brands: options.brands.filter(i => i.toLowerCase().includes(this.searchQueries.brand.toLowerCase())),
       }
@@ -1015,6 +1071,13 @@ export default {
         this.filters.brands = []
       } else {
         this.filters.brands = [...this.$resources.filterOptions.data.brands]
+      }
+    },
+    toggleAllSellingWarehouses() {
+      if (this.filters.sellingWarehouses.length === this.$resources.filterOptions.data.warehouses.length) {
+        this.filters.sellingWarehouses = []
+      } else {
+        this.filters.sellingWarehouses = [...this.$resources.filterOptions.data.warehouses]
       }
     },
     exportToExcel() {
