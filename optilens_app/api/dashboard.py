@@ -10,6 +10,7 @@ from frappe.utils import flt
 def get_stock_matrix(
     companies=None,
     warehouses=None,
+    selling_warehouses=None,
     groups=None,
     brands=None,
     matrix_type=None,
@@ -30,6 +31,8 @@ def get_stock_matrix(
             companies = frappe.parse_json(companies)
         if isinstance(warehouses, str):
             warehouses = frappe.parse_json(warehouses)
+        if isinstance(selling_warehouses, str):
+            selling_warehouses = frappe.parse_json(selling_warehouses)
         if isinstance(groups, str):
             groups = frappe.parse_json(groups)
         if isinstance(brands, str):
@@ -110,7 +113,11 @@ def get_stock_matrix(
                 conditions.append("si.company IN %(companies)s")
                 params["companies"] = companies
 
-            if warehouses:
+            if selling_warehouses:
+                conditions.append("sii.warehouse IN %(selling_warehouses)s")
+                params["selling_warehouses"] = selling_warehouses
+            elif warehouses:
+                # Fallback to stock warehouses if no selling warehouses selected
                 conditions.append("sii.warehouse IN %(warehouses)s")
                 params["warehouses"] = warehouses
 
@@ -150,7 +157,10 @@ def get_stock_matrix(
                 best_sell_conditions.append("si.company IN %(companies)s")
                 best_sell_params["companies"] = companies
             
-            if warehouses:
+            if selling_warehouses:
+                best_sell_conditions.append("sii.warehouse IN %(selling_warehouses)s")
+                best_sell_params["selling_warehouses"] = selling_warehouses
+            elif warehouses:
                 best_sell_conditions.append("sii.warehouse IN %(warehouses)s")
                 best_sell_params["warehouses"] = warehouses
 
@@ -311,7 +321,7 @@ def get_stock_filter_options(companies=None):
             warehouses = frappe.db.sql_list("""
                 SELECT DISTINCT name
                 FROM `tabWarehouse`
-                WHERE disabled = 0 AND company IN %s
+                WHERE disabled = 0 AND is_group = 0 AND company IN %s
                 ORDER BY name
             """, (tuple(companies),)) or []
         else:

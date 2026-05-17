@@ -915,6 +915,7 @@ export default {
       handler() {
         // Clear warehouse selections when companies change
         this.filters.warehouses = []
+        this.filters.sellingWarehouses = []
         // Reload filter options to get filtered warehouses
         this.$resources.filterOptions.reload()
       },
