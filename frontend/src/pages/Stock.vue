@@ -590,10 +590,7 @@
                   <td 
                     v-for="cly in clyValues" 
                     :key="`${sph}-${cly}`"
-                    :class="[
-                      'p-1 border cursor-pointer transition-colors text-center text-xs font-medium relative',
-                      (matrix[`${sph}-${cly}`]?.qty || 0) <= 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                    ]"
+                    :class="getCellClass(sph, cly)"
                     @click="showCellDetails(sph, cly)"
                   >
                     {{ matrix[`${sph}-${cly}`]?.qty || 0 }}
@@ -863,8 +860,44 @@ export default {
       }
       return values
     },
-    markDirty(sph, cly) {
-      this.dirtyCells.add(`${sph}-${cly}`)
+    isEnough(cell) {
+      if (!cell || !this.matrixFilters.isEnough) return null
+      
+      const qty = cell.qty || 0
+      const bestSell = cell.best_sell_qty || 0
+      
+      // Calculate multiplier to convert period to months (since bestSell is monthly)
+      let multiplier = 0
+      if (this.matrixFilters.periodUnit === 'days') {
+        multiplier = this.matrixFilters.periodValue / 30
+      } else if (this.matrixFilters.periodUnit === 'months') {
+        multiplier = this.matrixFilters.periodValue
+      } else if (this.matrixFilters.periodUnit === 'years') {
+        multiplier = this.matrixFilters.periodValue * 12
+      }
+      
+      const neededQty = bestSell * multiplier
+      
+      // Stock is enough if it is greater than or equal to the needed quantity
+      return qty >= neededQty
+    },
+    getCellClass(sph, cly) {
+      const cell = this.matrix[`${sph}-${cly}`]
+      const qty = cell?.qty || 0
+      
+      const baseClass = 'p-1 border cursor-pointer transition-colors text-center text-xs font-medium relative'
+      
+      // If "Is Enough" filter is ON
+      if (this.matrixFilters.isEnough) {
+        const enough = this.isEnough(cell)
+        if (enough === true) return `${baseClass} bg-green-100 text-green-700`
+        if (enough === false) return `${baseClass} bg-red-100 text-red-700`
+      }
+      
+      // Default color logic (Stock > 0)
+      return qty <= 0 
+        ? `${baseClass} bg-red-100 text-red-700` 
+        : `${baseClass} bg-green-100 text-green-700`
     },
     toggleSidebar() {
       this.sidebarOpen = !this.sidebarOpen
