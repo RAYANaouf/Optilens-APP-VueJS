@@ -312,7 +312,7 @@
             @click="collapsed.warehouse = !collapsed.warehouse"
             class="flex items-center justify-between w-full text-left mb-2 hover:bg-gray-50 p-1 rounded"
           >
-            <span class="text-sm font-medium text-gray-700">Warehouse</span>
+            <span class="text-sm font-medium text-gray-700">Stock Warehouse</span>
             <FeatherIcon
               :name="collapsed.warehouse ? 'chevron-right' : 'chevron-down'"
               class="w-4 h-4 text-gray-500 transition-transform"

@@ -92,6 +92,9 @@ def get_stock_matrix(
         # -------------------------
         # SALES DATA
         # -------------------------
+
+
+
         sales_map = {}
         best_month_map = {}
 
@@ -117,7 +120,7 @@ def get_stock_matrix(
                 conditions.append("sii.warehouse IN %(selling_warehouses)s")
                 params["selling_warehouses"] = selling_warehouses
             elif warehouses:
-                # Fallback to stock warehouses if no selling warehouses selected
+                # Use stock warehouses if no selling warehouses selected
                 conditions.append("sii.warehouse IN %(warehouses)s")
                 params["warehouses"] = warehouses
 
@@ -161,6 +164,7 @@ def get_stock_matrix(
                 best_sell_conditions.append("sii.warehouse IN %(selling_warehouses)s")
                 best_sell_params["selling_warehouses"] = selling_warehouses
             elif warehouses:
+                # Use stock warehouses if no selling warehouses selected
                 best_sell_conditions.append("sii.warehouse IN %(warehouses)s")
                 best_sell_params["warehouses"] = warehouses
 
