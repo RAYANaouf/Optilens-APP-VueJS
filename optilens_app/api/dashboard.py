@@ -15,7 +15,10 @@ def get_stock_matrix(
     matrix_type=None,
     sales_start=None,
     sales_end=None,
-    include_sales_data=0
+    include_sales_data=0,
+    is_enough=0,
+    period_value=30,
+    period_unit='days'
 ):
 
     try:

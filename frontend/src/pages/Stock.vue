@@ -21,9 +21,9 @@
 
     <!-- Sidebar Overlay -->
     <div
-      v-if="sidebarOpen"
-      @click="closeSidebar"
-      class="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300"
+      v-if="sidebarOpen || showPeriodDropdown"
+      @click="closeSidebar(); closeDropdowns()"
+      class="fixed inset-0 bg-black/5 z-40 transition-opacity duration-300"
     ></div>
 
     <!-- Sidebar -->
@@ -458,7 +458,7 @@
       <div class="bg-white rounded-xl shadow-sm border">
         <div class="p-4">
           <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-6">
+            <div class="flex items-center gap-6 flex-wrap">
               <div class="flex items-center gap-2">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Signs:</label>
                 <div class="flex items-center bg-gray-100 p-0.5 rounded-lg border">
@@ -492,6 +492,68 @@
                   <option value="half">10.00</option>
                   <option value="quarter">5.00</option>
                 </select>
+              </div>
+
+              <div class="h-6 w-px bg-gray-200 mx-1"></div>
+
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 cursor-pointer group">
+                  <div class="relative">
+                    <input
+                      type="checkbox"
+                      v-model="matrixFilters.isEnough"
+                      class="sr-only"
+                    />
+                    <div :class="['w-8 h-4 rounded-full transition-colors duration-200 ease-in-out', matrixFilters.isEnough ? 'bg-green-600' : 'bg-gray-200']"></div>
+                    <div :class="['absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-200 ease-in-out shadow-sm', matrixFilters.isEnough ? 'translate-x-4' : 'translate-x-0']"></div>
+                  </div>
+                  <span class="text-xs font-bold text-gray-600 uppercase tracking-wider group-hover:text-green-600 transition-colors">Is Enough</span>
+                </label>
+
+                <div class="flex items-center gap-2">
+                  <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Period:</label>
+                  <div class="flex items-center bg-gray-50 border rounded-lg px-2 py-1 gap-1 focus-within:ring-2 focus-within:ring-blue-500 transition-all relative">
+                    <input 
+                      v-model.number="matrixFilters.periodValue"
+                      type="number" 
+                      min="1"
+                      class="w-12 bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 p-0 text-center"
+                    />
+                    
+                    <!-- Custom Dropdown -->
+                    <div class="relative">
+                      <button 
+                        @click.stop="showPeriodDropdown = !showPeriodDropdown"
+                        class="flex items-center gap-1 px-1.5 py-0.5 hover:bg-blue-50 rounded transition-colors group/unit"
+                      >
+                        <span class="text-[10px] font-bold text-blue-600 uppercase">{{ matrixFilters.periodUnit }}</span>
+                        <FeatherIcon 
+                          name="chevron-down" 
+                          :class="['w-2.5 h-2.5 text-blue-400 transition-transform duration-200', showPeriodDropdown ? 'rotate-180' : '']"
+                        />
+                      </button>
+
+                      <!-- Dropdown Menu -->
+                      <div 
+                        v-if="showPeriodDropdown"
+                        class="absolute right-0 top-full mt-1.5 z-[110] bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 min-w-[100px] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                      >
+                        <button 
+                          v-for="unit in ['days', 'months', 'years']" 
+                          :key="unit"
+                          @click="matrixFilters.periodUnit = unit; showPeriodDropdown = false"
+                          :class="[
+                            'w-full px-3 py-1.5 text-left text-[10px] font-bold uppercase transition-colors flex items-center justify-between',
+                            matrixFilters.periodUnit === unit ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                          ]"
+                        >
+                          {{ unit }}
+                          <FeatherIcon v-if="matrixFilters.periodUnit === unit" name="check" class="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -674,6 +736,12 @@ export default {
         group: true,
         brand: true,
       },
+      matrixFilters: {
+        isEnough: false,
+        periodValue: 30,
+        periodUnit: 'days'
+      },
+      showPeriodDropdown: false,
     }
   },
   resources: {
@@ -691,6 +759,9 @@ export default {
             sales_start: this.filters.sales.start,
             sales_end: this.filters.sales.end,
             include_sales_data: this.filters.sales.getBestSellers ? 1 : 0,
+            is_enough: this.matrixFilters.isEnough ? 1 : 0,
+            period_value: this.matrixFilters.periodValue,
+            period_unit: this.matrixFilters.periodUnit,
           }
         },
         onSuccess: (data) => {
@@ -800,6 +871,10 @@ export default {
     },
     closeSidebar() {
       this.sidebarOpen = false
+    },
+    closeDropdowns() {
+      this.showPeriodDropdown = false
+      this.showDatePicker = null
     },
     toggleAllCompanies() {
       if (this.filters.companies.length === this.$resources.filterOptions.data.companies.length) {
